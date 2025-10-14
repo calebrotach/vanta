@@ -9,6 +9,8 @@ import uvicorn
 from models.acat import ACATRequest, ACATValidationResponse, ACATSubmissionRequest
 from services.claude_service import ClaudeACATService
 from services.validation_service import ACATValidationService
+from services.tracking_service import InMemoryACATStore
+from models.acat import ACATRecord, ACATStatus
 
 # Load environment variables
 load_dotenv()
@@ -32,6 +34,7 @@ app.add_middleware(
 # Initialize services
 claude_service = ClaudeACATService()
 validation_service = ACATValidationService()
+tracking_store = InMemoryACATStore()
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -90,13 +93,20 @@ async def submit_acat(submission_request: ACATSubmissionRequest):
         print(f"  Accepted Suggestions: {accepted_suggestions}")
         print(f"  Custom Modifications: {custom_modifications}")
         
-        return {
+        submission_response = {
             "status": "success",
             "message": "ACAT data submitted successfully",
             "submission_id": f"ACAT_{acat_data.delivering_account}_{acat_data.receiving_account}",
             "accepted_suggestions": accepted_suggestions,
             "custom_modifications": custom_modifications
         }
+
+        # Create tracking record on submission
+        tracking_record = tracking_store.create(acat_data)
+        tracking_store.update_status(tracking_record.id, ACATStatus.SUBMITTED)
+        submission_response["tracking_id"] = tracking_record.id
+        submission_response["tracking_status"] = tracking_record.status
+        return submission_response
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Submission failed: {str(e)}")
@@ -109,6 +119,40 @@ async def health_check():
         "service": "ACAT Correction Service",
         "version": "1.0.0"
     }
+
+
+# --- ACAT tracking endpoints ---
+
+@app.post("/api/tracking", response_model=ACATRecord)
+async def create_tracking_record(acat_request: ACATRequest):
+    return tracking_store.create(acat_request)
+
+
+@app.get("/api/tracking", response_model=list[ACATRecord])
+async def list_tracking_records():
+    return tracking_store.list()
+
+
+@app.get("/api/tracking/{record_id}", response_model=ACATRecord)
+async def get_tracking_record(record_id: str):
+    try:
+        return tracking_store.get(record_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Tracking record not found")
+
+
+@app.patch("/api/tracking/{record_id}/status", response_model=ACATRecord)
+async def update_tracking_status(record_id: str, status: ACATStatus):
+    try:
+        return tracking_store.update_status(record_id, status)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Tracking record not found")
+
+
+@app.delete("/api/tracking/{record_id}")
+async def delete_tracking_record(record_id: str):
+    tracking_store.delete(record_id)
+    return {"status": "deleted"}
 
 @app.get("/api/contra-firms")
 async def get_contra_firms():

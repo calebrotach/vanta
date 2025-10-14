@@ -15,6 +15,7 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 document.addEventListener('DOMContentLoaded', function() {
     loadContraFirms();
     setupEventListeners();
+    refreshACATList();
 });
 
 // Load contra firms from API
@@ -111,6 +112,7 @@ async function submitACAT() {
         
         const result = await response.json();
         alert(`ACAT submitted successfully!\nSubmission ID: ${result.submission_id}`);
+        refreshACATList();
         
         // Reset form
         form.reset();
@@ -371,4 +373,74 @@ function addSecurityField() {
 // Show/hide loading overlay
 function showLoading(show) {
     loadingOverlay.style.display = show ? 'flex' : 'none';
+}
+
+// --- Ongoing ACATs List ---
+async function refreshACATList() {
+    try {
+        const res = await fetch('/api/tracking');
+        if (!res.ok) return;
+        const acats = await res.json();
+        renderACATList(acats);
+    } catch (e) {
+        console.error('Failed to load ACAT list', e);
+    }
+}
+
+function renderACATList(acats) {
+    const container = document.getElementById('acatList');
+    if (!container) return;
+    if (!acats || acats.length === 0) {
+        container.innerHTML = '<p>No ongoing ACATs yet.</p>';
+        return;
+    }
+    const rows = acats.map(a => `
+        <tr>
+            <td>${a.id}</td>
+            <td>${a.acat_data.delivering_account}</td>
+            <td>${a.acat_data.receiving_account}</td>
+            <td><strong>${a.status}</strong></td>
+            <td>
+                ${renderStatusActions(a)}
+            </td>
+        </tr>
+    `).join('');
+    container.innerHTML = `
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Delivering</th>
+                    <th>Receiving</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+}
+
+function renderStatusActions(record) {
+    const statuses = [
+        'new','submitted','pending_review','pending_client','pending_delivering','pending_receiving','rejected','cancelled','completed'
+    ];
+    const options = statuses.map(s => `<option value="${s}" ${record.status===s?'selected':''}>${s}</option>`).join('');
+    return `
+        <select onchange="updateRecordStatus('${record.id}', this.value)">
+            ${options}
+        </select>
+    `;
+}
+
+async function updateRecordStatus(id, status) {
+    try {
+        const res = await fetch(`/api/tracking/${id}/status?status=${encodeURIComponent(status)}`, { method: 'PATCH' });
+        if (!res.ok) throw new Error('Failed to update status');
+        await refreshACATList();
+    } catch (e) {
+        alert(e.message);
+    }
 }

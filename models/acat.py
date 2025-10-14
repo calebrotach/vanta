@@ -86,3 +86,23 @@ class ACATSubmissionRequest(BaseModel):
     acat_data: ACATRequest = Field(..., description="ACAT data to submit")
     accepted_suggestions: List[str] = Field(default_factory=list, description="List of accepted suggestion field names")
     custom_modifications: dict = Field(default_factory=dict, description="Custom field modifications")
+
+
+class ACATStatus(str, Enum):
+    NEW = "new"
+    SUBMITTED = "submitted"
+    PENDING_REVIEW = "pending_review"
+    PENDING_CLIENT = "pending_client"
+    PENDING_DELIVERING = "pending_delivering"
+    PENDING_RECEIVING = "pending_receiving"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+    COMPLETED = "completed"
+
+
+class ACATRecord(BaseModel):
+    id: str = Field(..., description="Unique ACAT tracking identifier")
+    status: ACATStatus = Field(default=ACATStatus.NEW, description="Current DTCC-related status")
+    acat_data: ACATRequest = Field(..., description="Underlying ACAT request payload")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
