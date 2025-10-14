@@ -17,6 +17,10 @@ class SimpleAuthService:
         full_user = User(
             id=str(uuid.uuid4()),
             username="admin",
+            first_name="System",
+            last_name="Administrator",
+            email="admin@vanta.com",
+            phone_number="+1-555-0001",
             role=UserRole.FULL
         )
         self._users[full_user.id] = full_user
@@ -25,6 +29,10 @@ class SimpleAuthService:
         read_user = User(
             id=str(uuid.uuid4()),
             username="viewer",
+            first_name="Read",
+            last_name="Only",
+            email="viewer@vanta.com",
+            phone_number="+1-555-0002",
             role=UserRole.READ_ONLY
         )
         self._users[read_user.id] = read_user
@@ -33,8 +41,37 @@ class SimpleAuthService:
         """Simple authentication by username (no password for demo)."""
         for user in self._users.values():
             if user.username == username:
+                # Update last login
+                user.last_login = datetime.utcnow()
                 return user
         return None
+    
+    def create_user(self, username: str, first_name: str, last_name: str, email: str, phone_number: str = None, role: UserRole = UserRole.READ_ONLY) -> Optional[User]:
+        """Create a new user."""
+        # Check if username already exists
+        for user in self._users.values():
+            if user.username == username:
+                return None
+        
+        new_user = User(
+            id=str(uuid.uuid4()),
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            phone_number=phone_number,
+            role=role,
+            is_onboarded=False
+        )
+        self._users[new_user.id] = new_user
+        return new_user
+    
+    def update_user_onboarding(self, user_id: str, is_onboarded: bool = True) -> bool:
+        """Update user onboarding status."""
+        if user_id in self._users:
+            self._users[user_id].is_onboarded = is_onboarded
+            return True
+        return False
     
     def create_session(self, user: User) -> str:
         """Create a session for the user."""

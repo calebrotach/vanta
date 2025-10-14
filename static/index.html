@@ -24,8 +24,225 @@
         </header>
 
         <div class="main-content">
-            <!-- ACAT Form -->
-            <div class="form-section">
+            <!-- Onboarding Flow -->
+            <div id="onboardingFlow" style="display: none;">
+                <div class="onboarding-container">
+                    <div id="welcomeStep" class="onboarding-step">
+                        <h2>Welcome to ACAT Correction Service</h2>
+                        <p>This AI-powered service helps you validate and correct ACAT transfer data to prevent DTCC rejections.</p>
+                        <div class="onboarding-features">
+                            <div class="feature">
+                                <h3>🤖 AI-Powered Validation</h3>
+                                <p>Get intelligent suggestions to fix common ACAT issues before submission</p>
+                            </div>
+                            <div class="feature">
+                                <h3>📊 Learning System</h3>
+                                <p>Learn from past rejections to improve success rates with each contra firm</p>
+                            </div>
+                            <div class="feature">
+                                <h3>👥 Role-Based Access</h3>
+                                <p>Secure access with read-only and full permission levels</p>
+                            </div>
+                        </div>
+                        <button onclick="startOnboarding()" class="btn-primary">Get Started</button>
+                    </div>
+
+                    <div id="userCreationStep" class="onboarding-step" style="display: none;">
+                        <h2>Create Your Account</h2>
+                        <form id="userCreationForm">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="newUsername">Username *</label>
+                                    <input type="text" id="newUsername" required minlength="3" maxlength="50">
+                                </div>
+                                <div class="form-group">
+                                    <label for="newEmail">Email *</label>
+                                    <input type="email" id="newEmail" required>
+                                </div>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="newFirstName">First Name *</label>
+                                    <input type="text" id="newFirstName" required minlength="1" maxlength="50">
+                                </div>
+                                <div class="form-group">
+                                    <label for="newLastName">Last Name *</label>
+                                    <input type="text" id="newLastName" required minlength="1" maxlength="50">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="newPhoneNumber">Phone Number</label>
+                                <input type="tel" id="newPhoneNumber" placeholder="+1-555-123-4567">
+                            </div>
+                            <div class="form-group">
+                                <label for="userRole">Role *</label>
+                                <select id="userRole" required>
+                                    <option value="">Select your role...</option>
+                                    <option value="read_only">Viewer (Read-only access)</option>
+                                    <option value="full">Administrator (Full access)</option>
+                                </select>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" onclick="goBackToWelcome()" class="btn-secondary">Back</button>
+                                <button type="submit" class="btn-primary">Create Account</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div id="setupCompleteStep" class="onboarding-step" style="display: none;">
+                        <h2>Setup Complete!</h2>
+                        <p>Your account has been created successfully. You can now start using the ACAT Correction Service.</p>
+                        <div class="next-steps">
+                            <h3>What's Next?</h3>
+                            <ul>
+                                <li>Create your first ACAT request</li>
+                                <li>Validate data with AI assistance</li>
+                                <li>Track ongoing transfers</li>
+                                <li>View learning analytics (if admin)</li>
+                            </ul>
+                        </div>
+                        <button onclick="completeOnboarding()" class="btn-primary">Start Using the Service</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACAT Creation Wizard -->
+            <div id="acatCreationWizard" style="display: none;">
+                <div class="wizard-container">
+                    <div class="wizard-header">
+                        <h2>Create New ACAT Request</h2>
+                        <div class="wizard-progress">
+                            <div class="progress-step active" data-step="1">Account Info</div>
+                            <div class="progress-step" data-step="2">Customer Info</div>
+                            <div class="progress-step" data-step="3">Securities</div>
+                            <div class="progress-step" data-step="4">Review</div>
+                        </div>
+                    </div>
+
+                    <form id="acatWizardForm">
+                        <!-- Step 1: Account Information -->
+                        <div class="wizard-step" id="step1">
+                            <h3>Account Information</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="wizDeliveringAccount">Delivering Account *</label>
+                                    <input type="text" id="wizDeliveringAccount" name="delivering_account" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="wizReceivingAccount">Receiving Account *</label>
+                                    <input type="text" id="wizReceivingAccount" name="receiving_account" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="wizContraFirm">Contra Firm (DTCC Participant) *</label>
+                                    <select id="wizContraFirm" name="contra_firm" required>
+                                        <option value="">Select contra firm...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="wizTransferType">Transfer Type *</label>
+                                    <select id="wizTransferType" name="transfer_type" required>
+                                        <option value="">Select type...</option>
+                                        <option value="full">Full Transfer</option>
+                                        <option value="partial">Partial Transfer</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="wizard-actions">
+                                <button type="button" onclick="nextStep()" class="btn-primary">Next</button>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Customer Information -->
+                        <div class="wizard-step" id="step2" style="display: none;">
+                            <h3>Customer Information</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="wizFirstName">First Name *</label>
+                                    <input type="text" id="wizFirstName" name="customer.first_name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="wizLastName">Last Name *</label>
+                                    <input type="text" id="wizLastName" name="customer.last_name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="wizSSN">SSN</label>
+                                    <input type="text" id="wizSSN" name="customer.ssn" placeholder="XXX-XX-XXXX">
+                                </div>
+                                <div class="form-group">
+                                    <label for="wizTaxId">Tax ID</label>
+                                    <input type="text" id="wizTaxId" name="customer.tax_id">
+                                </div>
+                            </div>
+                            <div class="wizard-actions">
+                                <button type="button" onclick="prevStep()" class="btn-secondary">Previous</button>
+                                <button type="button" onclick="nextStep()" class="btn-primary">Next</button>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Securities -->
+                        <div class="wizard-step" id="step3" style="display: none;">
+                            <h3>Securities to Transfer</h3>
+                            <div id="wizSecuritiesContainer">
+                                <div class="security-item">
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label>CUSIP *</label>
+                                            <input type="text" name="securities[0].cusip" required maxlength="9">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Symbol</label>
+                                            <input type="text" name="securities[0].symbol" maxlength="10">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Description *</label>
+                                            <input type="text" name="securities[0].description" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Quantity *</label>
+                                            <input type="number" name="securities[0].quantity" required min="1">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Asset Type *</label>
+                                            <select name="securities[0].asset_type" required>
+                                                <option value="">Select type...</option>
+                                                <option value="equity">Equity</option>
+                                                <option value="mutual_fund">Mutual Fund</option>
+                                                <option value="bond">Bond</option>
+                                                <option value="option">Option</option>
+                                                <option value="cash">Cash</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" onclick="addWizardSecurity()" class="btn-secondary">+ Add Security</button>
+                            <div class="wizard-actions">
+                                <button type="button" onclick="prevStep()" class="btn-secondary">Previous</button>
+                                <button type="button" onclick="nextStep()" class="btn-primary">Next</button>
+                            </div>
+                        </div>
+
+                        <!-- Step 4: Review -->
+                        <div class="wizard-step" id="step4" style="display: none;">
+                            <h3>Review ACAT Request</h3>
+                            <div id="wizReviewContent">
+                                <!-- Review content will be populated by JavaScript -->
+                            </div>
+                            <div class="form-group">
+                                <label for="wizSpecialInstructions">Special Instructions</label>
+                                <textarea id="wizSpecialInstructions" name="special_instructions" rows="3"></textarea>
+                            </div>
+                            <div class="wizard-actions">
+                                <button type="button" onclick="prevStep()" class="btn-secondary">Previous</button>
+                                <button type="button" onclick="createACATRequest()" class="btn-success">Create ACAT Request</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ACAT Form (Legacy) -->
+            <div class="form-section" id="legacyForm" style="display: none;">
                 <h2>ACAT Transfer Details</h2>
                 <form id="acatForm">
                     <div class="form-grid">
