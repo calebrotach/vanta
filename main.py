@@ -11,6 +11,7 @@ from services.claude_service import ClaudeACATService
 from services.validation_service import ACATValidationService
 from services.tracking_service import InMemoryACATStore
 from services.auth_service import SimpleAuthService
+from services.learning_service import ContraFirmLearningService
 from models.acat import ACATRecord, ACATStatus, StatusUpdateRequest, UserRole
 
 # Load environment variables
@@ -37,6 +38,7 @@ claude_service = ClaudeACATService()
 validation_service = ACATValidationService()
 tracking_store = InMemoryACATStore()
 auth_service = SimpleAuthService()
+learning_service = ContraFirmLearningService()
 
 # Seed dummy data
 def seed_dummy_data():
@@ -126,6 +128,14 @@ async def validate_acat(acat_request: ACATRequest):
         # If basic validation passed, use Claude for deeper analysis
         claude_validation = await claude_service.analyze_acat(acat_request)
         
+        # Record validation result for learning
+        validation_data = {
+            "suggestions": claude_validation.suggestions,
+            "is_valid": claude_validation.is_valid,
+            "success_probability": claude_validation.success_probability
+        }
+        learning_service.record_validation_result(acat_request.contra_firm, validation_data)
+        
         # Combine results (Claude analysis takes precedence)
         return ACATValidationResponse(
             is_valid=claude_validation.is_valid,
@@ -157,6 +167,13 @@ async def submit_acat(submission_request: ACATSubmissionRequest):
         print(f"  Accepted Suggestions: {accepted_suggestions}")
         print(f"  Custom Modifications: {custom_modifications}")
         
+        # Record learning data for this submission
+        learning_data = {
+            "accepted_suggestions": accepted_suggestions,
+            "custom_modifications": custom_modifications
+        }
+        learning_service.record_validation_result(acat_data.contra_firm, learning_data, was_accepted=True)
+        
         submission_response = {
             "status": "success",
             "message": "ACAT data submitted successfully",
@@ -167,7 +184,7 @@ async def submit_acat(submission_request: ACATSubmissionRequest):
 
         # Create tracking record on submission
         tracking_record = tracking_store.create(acat_data)
-        tracking_store.update_status(tracking_record.id, ACATStatus.SUBMITTED)
+        tracking_store.update_status(tracking_record.id, ACATStatus.SUBMITTED, "Initial submission", "system")
         submission_response["tracking_id"] = tracking_record.id
         submission_response["tracking_status"] = tracking_record.status
         return submission_response
@@ -208,7 +225,7 @@ async def get_tracking_record(record_id: str):
 @app.patch("/api/tracking/{record_id}/status", response_model=ACATRecord)
 async def update_tracking_status(record_id: str, update_request: StatusUpdateRequest):
     try:
-        return tracking_store.update_status(record_id, update_request.status, update_request.reason, update_request.updated_by)
+        return tracking_store.update_status(record_id, update_request.status, update_request.reason, update_request.updated_by, learning_service)
     except KeyError:
         raise HTTPException(status_code=404, detail="Tracking record not found")
 
@@ -254,6 +271,31 @@ async def get_current_user(session_id: str):
 async def get_contra_firms():
     """Get list of common contra firms."""
     return validation_service.common_contra_firms
+
+
+# --- Learning and Analytics endpoints ---
+
+@app.get("/api/learning/firm/{contra_firm}")
+async def get_firm_learning(contra_firm: str):
+    """Get learning data for a specific contra firm."""
+    return {
+        "contra_firm": contra_firm,
+        "preferences": learning_service.get_firm_preferences(contra_firm),
+        "common_issues": learning_service.get_common_issues_for_firm(contra_firm),
+        "success_rate": learning_service.get_firm_success_rate(contra_firm)
+    }
+
+
+@app.get("/api/learning/insights")
+async def get_learning_insights():
+    """Get overall learning insights across all firms."""
+    return learning_service.get_learning_insights()
+
+
+@app.get("/api/learning/export")
+async def export_learning_data():
+    """Export all learning data for analysis."""
+    return learning_service.export_learning_data()
 
 if __name__ == "__main__":
     uvicorn.run(

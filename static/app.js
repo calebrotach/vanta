@@ -88,6 +88,15 @@ function updatePermissions() {
     if (formSection) {
         formSection.style.display = isReadOnly ? 'none' : 'block';
     }
+    
+    // Show learning analytics for full users
+    const learningSection = document.getElementById('learningSection');
+    if (learningSection) {
+        learningSection.style.display = currentUser && currentUser.role === 'full' ? 'block' : 'none';
+        if (currentUser && currentUser.role === 'full') {
+            loadLearningInsights();
+        }
+    }
 }
 
 function checkAuth() {
@@ -552,7 +561,61 @@ async function updateRecordStatus(id, status, reason) {
         
         if (!res.ok) throw new Error('Failed to update status');
         await refreshACATList();
+        
+        // Refresh learning insights after status change
+        if (currentUser.role === 'full') {
+            loadLearningInsights();
+        }
     } catch (e) {
         alert(e.message);
     }
+}
+
+// --- Learning Analytics ---
+
+async function loadLearningInsights() {
+    try {
+        const res = await fetch('/api/learning/insights');
+        if (!res.ok) return;
+        const insights = await res.json();
+        renderLearningInsights(insights);
+    } catch (e) {
+        console.error('Failed to load learning insights', e);
+    }
+}
+
+function renderLearningInsights(insights) {
+    const container = document.getElementById('learningInsights');
+    if (!container) return;
+    
+    if (!insights.learning_active) {
+        container.innerHTML = '<p>No learning data available yet. Submit some ACATs to start learning!</p>';
+        return;
+    }
+    
+    const successRate = Math.round(insights.overall_success_rate * 100);
+    const problematicFirms = insights.problematic_firms.map(f => 
+        `${f.firm} (${Math.round(f.success_rate * 100)}% success, ${f.total_submissions} submissions)`
+    ).join('<br>');
+    
+    const commonIssues = insights.most_common_issues.map(([field, count]) => 
+        `${field}: ${count} occurrences`
+    ).join('<br>');
+    
+    container.innerHTML = `
+        <div class="learning-stats">
+            <h3>Overall Statistics</h3>
+            <p><strong>Total Firms:</strong> ${insights.total_firms}</p>
+            <p><strong>Total Submissions:</strong> ${insights.total_submissions}</p>
+            <p><strong>Overall Success Rate:</strong> ${successRate}%</p>
+        </div>
+        <div class="learning-issues">
+            <h3>Most Common Issues</h3>
+            <p>${commonIssues || 'No common issues identified yet'}</p>
+        </div>
+        <div class="learning-problematic">
+            <h3>Firms Needing Attention</h3>
+            <p>${problematicFirms || 'All firms performing well!'}</p>
+        </div>
+    `;
 }

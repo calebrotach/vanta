@@ -23,7 +23,7 @@ class InMemoryACATStore:
     def get(self, record_id: str) -> ACATRecord:
         return self._records[record_id]
 
-    def update_status(self, record_id: str, new_status: ACATStatus, reason: str, updated_by: str) -> ACATRecord:
+    def update_status(self, record_id: str, new_status: ACATStatus, reason: str, updated_by: str, learning_service=None) -> ACATRecord:
         record = self._records[record_id]
         old_status = record.status
         record.status = new_status
@@ -37,6 +37,10 @@ class InMemoryACATStore:
             "updated_by": updated_by,
             "updated_at": datetime.utcnow().isoformat()
         })
+        
+        # Record status change for learning
+        if learning_service:
+            learning_service.record_status_change(record.acat_data.contra_firm, old_status, new_status, reason)
         
         self._records[record_id] = record
         return record
