@@ -1,4 +1,4 @@
-# ACAT Correction Service - Project Structure
+# vanta - Project Structure
 
 ```
 acat-correction-service/
