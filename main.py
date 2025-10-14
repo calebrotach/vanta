@@ -1,4 +1,5 @@
 import os
+import random
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
@@ -44,7 +45,6 @@ learning_service = ContraFirmLearningService()
 def seed_dummy_data():
     from models.acat import ACATRequest, TransferType, Security, AssetType, CustomerInfo
     from datetime import datetime, timedelta
-    import random
     
     # Sample data for generating realistic ACATs
     first_names = ["John", "Jane", "Michael", "Sarah", "David", "Lisa", "Robert", "Emily", "James", "Jessica", 
@@ -364,7 +364,10 @@ async def get_current_user(session_id: str):
     return {
         "id": user.id,
         "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
         "email": user.email,
+        "phone_number": user.phone_number,
         "role": user.role,
         "is_onboarded": user.is_onboarded,
         "last_login": user.last_login
@@ -376,7 +379,10 @@ async def register_user(user_data: UserCreateRequest):
     """Register a new user."""
     user = auth_service.create_user(
         username=user_data.username,
+        first_name=user_data.first_name,
+        last_name=user_data.last_name,
         email=user_data.email,
+        phone_number=user_data.phone_number,
         role=user_data.role
     )
     

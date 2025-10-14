@@ -117,7 +117,10 @@ class UserRole(str, Enum):
 class User(BaseModel):
     id: str = Field(..., description="Unique user identifier")
     username: str = Field(..., min_length=3, max_length=50, description="Username")
-    email: Optional[str] = Field(None, description="User email address")
+    first_name: str = Field(..., min_length=1, max_length=50, description="User's first name")
+    last_name: str = Field(..., min_length=1, max_length=50, description="User's last name")
+    email: str = Field(..., description="User email address")
+    phone_number: Optional[str] = Field(None, description="User phone number")
     role: UserRole = Field(..., description="User role/permissions")
     is_onboarded: bool = Field(default=False, description="Whether user has completed onboarding")
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -126,7 +129,10 @@ class User(BaseModel):
 
 class UserCreateRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, description="Username")
-    email: Optional[str] = Field(None, description="User email address")
+    first_name: str = Field(..., min_length=1, max_length=50, description="User's first name")
+    last_name: str = Field(..., min_length=1, max_length=50, description="User's last name")
+    email: str = Field(..., description="User email address")
+    phone_number: Optional[str] = Field(None, description="User phone number")
     role: UserRole = Field(..., description="User role/permissions")
 
 

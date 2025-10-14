@@ -66,7 +66,7 @@ function updateAuthUI() {
     if (currentUser) {
         loginForm.style.display = 'none';
         userInfo.style.display = 'block';
-        currentUserSpan.textContent = `${currentUser.username} (${currentUser.role})`;
+        currentUserSpan.textContent = `${currentUser.first_name} ${currentUser.last_name} (${currentUser.username}) - ${currentUser.role}`;
         updatePermissions();
     } else {
         loginForm.style.display = 'block';
@@ -619,3 +619,59 @@ function renderLearningInsights(insights) {
         </div>
     `;
 }
+
+// User Creation Functions
+async function createUserAccount() {
+    const form = document.getElementById('userCreationForm');
+    const formData = new FormData(form);
+    
+    const userData = {
+        username: document.getElementById('newUsername').value,
+        first_name: document.getElementById('newFirstName').value,
+        last_name: document.getElementById('newLastName').value,
+        email: document.getElementById('newEmail').value,
+        phone_number: document.getElementById('newPhoneNumber').value || null,
+        role: document.getElementById('userRole').value
+    };
+    
+    try {
+        const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userData)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Registration failed');
+        }
+        
+        const result = await response.json();
+        alert('Account created successfully! You can now log in.');
+        showOnboardingStep('setupComplete');
+        
+    } catch (error) {
+        console.error('Registration failed:', error);
+        alert('Registration failed: ' + error.message);
+    }
+}
+
+// Setup event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Existing event listeners...
+    loadContraFirms();
+    setupEventListeners();
+    refreshACATList();
+    checkAuth();
+    
+    // Add user creation form listener
+    const userCreationForm = document.getElementById('userCreationForm');
+    if (userCreationForm) {
+        userCreationForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            createUserAccount();
+        });
+    }
+});
