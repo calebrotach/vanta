@@ -1,5 +1,26 @@
 # Python
 __pycache__/
+*.pyc
+
+# Virtual env
+venv/
+
+# Environment
+.env
+.env.*
+
+# SSH or key material accidentally placed here
+id_ed25519
+id_ed25519.pub
+calebrotachgit
+calebrotachgit.pub
+general
+general.pub
+
+# OS
+.DS_Store
+# Python
+__pycache__/
 *.py[cod]
 *$py.class
 *.so
