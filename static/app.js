@@ -1,0 +1,374 @@
+// Global state
+let currentValidation = null;
+let acceptedSuggestions = new Set();
+let customModifications = {};
+
+// DOM elements
+const form = document.getElementById('acatForm');
+const validateBtn = document.getElementById('validateBtn');
+const submitBtn = document.getElementById('submitBtn');
+const addSecurityBtn = document.getElementById('addSecurity');
+const resultsSection = document.getElementById('resultsSection');
+const loadingOverlay = document.getElementById('loadingOverlay');
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
+    loadContraFirms();
+    setupEventListeners();
+});
+
+// Load contra firms from API
+async function loadContraFirms() {
+    try {
+        const response = await fetch('/api/contra-firms');
+        const contraFirms = await response.json();
+        
+        const select = document.getElementById('contraFirm');
+        Object.entries(contraFirms).forEach(([code, name]) => {
+            const option = document.createElement('option');
+            option.value = code;
+            option.textContent = `${code} - ${name}`;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Failed to load contra firms:', error);
+    }
+}
+
+// Setup event listeners
+function setupEventListeners() {
+    validateBtn.addEventListener('click', validateACAT);
+    submitBtn.addEventListener('click', submitACAT);
+    addSecurityBtn.addEventListener('click', addSecurityField);
+    
+    // Form validation
+    form.addEventListener('input', function() {
+        submitBtn.disabled = !currentValidation || !currentValidation.is_valid;
+    });
+}
+
+// Validate ACAT data
+async function validateACAT() {
+    if (!validateForm()) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    showLoading(true);
+    
+    try {
+        const formData = getFormData();
+        const response = await fetch('/api/validate-acat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const validation = await response.json();
+        currentValidation = validation;
+        displayValidationResults(validation);
+        
+    } catch (error) {
+        console.error('Validation failed:', error);
+        alert('Validation failed: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Submit ACAT data
+async function submitACAT() {
+    if (!currentValidation) {
+        alert('Please validate the ACAT data first');
+        return;
+    }
+    
+    try {
+        const formData = getFormData();
+        const submissionData = {
+            acat_data: formData,
+            accepted_suggestions: Array.from(acceptedSuggestions),
+            custom_modifications: customModifications
+        };
+        
+        const response = await fetch('/api/submit-acat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(submissionData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        alert(`ACAT submitted successfully!\nSubmission ID: ${result.submission_id}`);
+        
+        // Reset form
+        form.reset();
+        resultsSection.style.display = 'none';
+        currentValidation = null;
+        acceptedSuggestions.clear();
+        customModifications = {};
+        submitBtn.disabled = true;
+        
+    } catch (error) {
+        console.error('Submission failed:', error);
+        alert('Submission failed: ' + error.message);
+    }
+}
+
+// Get form data as JSON
+function getFormData() {
+    const formData = new FormData(form);
+    const data = {};
+    
+    // Basic fields
+    data.delivering_account = formData.get('delivering_account');
+    data.receiving_account = formData.get('receiving_account');
+    data.contra_firm = formData.get('contra_firm');
+    data.transfer_type = formData.get('transfer_type');
+    data.special_instructions = formData.get('special_instructions');
+    
+    // Customer information
+    data.customer = {
+        first_name: formData.get('customer.first_name'),
+        last_name: formData.get('customer.last_name'),
+        ssn: formData.get('customer.ssn'),
+        tax_id: formData.get('customer.tax_id')
+    };
+    
+    // Securities
+    data.securities = [];
+    const securityInputs = document.querySelectorAll('[name^="securities["]');
+    const securityCount = Math.max(...Array.from(securityInputs).map(input => {
+        const match = input.name.match(/securities\[(\d+)\]/);
+        return match ? parseInt(match[1]) : 0;
+    })) + 1;
+    
+    for (let i = 0; i < securityCount; i++) {
+        const cusip = formData.get(`securities[${i}].cusip`);
+        if (cusip) {
+            data.securities.push({
+                cusip: cusip,
+                symbol: formData.get(`securities[${i}].symbol`) || null,
+                description: formData.get(`securities[${i}].description`),
+                quantity: parseInt(formData.get(`securities[${i}].quantity`)),
+                asset_type: formData.get(`securities[${i}].asset_type`)
+            });
+        }
+    }
+    
+    return data;
+}
+
+// Validate form
+function validateForm() {
+    const requiredFields = form.querySelectorAll('[required]');
+    for (const field of requiredFields) {
+        if (!field.value.trim()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Display validation results
+function displayValidationResults(validation) {
+    resultsSection.style.display = 'block';
+    
+    // Validation status
+    const statusDiv = document.getElementById('validationStatus');
+    statusDiv.className = `validation-status ${validation.is_valid ? 'valid' : 'invalid'}`;
+    
+    const statusText = validation.is_valid ? '✓ Valid' : '✗ Issues Found';
+    const probability = Math.round(validation.success_probability * 100);
+    const probabilityClass = probability >= 80 ? 'high' : probability >= 60 ? 'medium' : 'low';
+    
+    statusDiv.innerHTML = `
+        ${statusText}
+        <span class="success-probability ${probabilityClass}">
+            ${probability}% Success Probability
+        </span>
+    `;
+    
+    // Suggestions
+    displaySuggestions(validation.suggestions);
+    
+    // Warnings
+    displayWarnings(validation.warnings);
+    
+    // AI Analysis
+    displayAIAnalysis(validation.ai_analysis);
+    
+    // Enable/disable submit button
+    submitBtn.disabled = !validation.is_valid;
+}
+
+// Display suggestions
+function displaySuggestions(suggestions) {
+    const container = document.getElementById('suggestionsContainer');
+    
+    if (suggestions.length === 0) {
+        container.innerHTML = '<p>No suggestions found. ACAT data looks good!</p>';
+        return;
+    }
+    
+    container.innerHTML = '<h3>AI Suggestions</h3>';
+    
+    suggestions.forEach((suggestion, index) => {
+        const suggestionDiv = document.createElement('div');
+        suggestionDiv.className = `suggestion-item ${suggestion.severity}`;
+        suggestionDiv.innerHTML = `
+            <div class="suggestion-header">
+                <span class="suggestion-field">${suggestion.field}</span>
+                <span class="suggestion-severity ${suggestion.severity}">${suggestion.severity}</span>
+            </div>
+            <div class="suggestion-details">
+                <p><strong>Current:</strong> <span class="suggestion-current">${suggestion.current_value}</span></p>
+                <p><strong>Suggested:</strong> <span class="suggestion-suggested">${suggestion.suggested_value}</span></p>
+                <p class="suggestion-reason">${suggestion.reason}</p>
+                <p><strong>Confidence:</strong> ${Math.round(suggestion.confidence * 100)}%</p>
+            </div>
+            <div class="suggestion-actions">
+                <button class="accept-suggestion" onclick="acceptSuggestion('${suggestion.field}', '${suggestion.suggested_value}')">
+                    Accept
+                </button>
+                <button class="reject-suggestion" onclick="rejectSuggestion('${suggestion.field}')">
+                    Reject
+                </button>
+            </div>
+        `;
+        container.appendChild(suggestionDiv);
+    });
+}
+
+// Display warnings
+function displayWarnings(warnings) {
+    const container = document.getElementById('warningsContainer');
+    
+    if (warnings.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    container.innerHTML = '<h3>Warnings</h3>';
+    
+    warnings.forEach(warning => {
+        const warningDiv = document.createElement('div');
+        warningDiv.className = 'warning-item';
+        warningDiv.textContent = warning;
+        container.appendChild(warningDiv);
+    });
+}
+
+// Display AI analysis
+function displayAIAnalysis(analysis) {
+    const container = document.getElementById('aiAnalysis');
+    container.innerHTML = `
+        <h4>AI Analysis Summary</h4>
+        <p>${analysis}</p>
+    `;
+}
+
+// Accept suggestion
+function acceptSuggestion(field, suggestedValue) {
+    acceptedSuggestions.add(field);
+    customModifications[field] = suggestedValue;
+    
+    // Update the form field if it exists
+    const fieldElement = document.querySelector(`[name="${field}"]`);
+    if (fieldElement) {
+        fieldElement.value = suggestedValue;
+    }
+    
+    // Update UI
+    updateSuggestionUI(field, true);
+}
+
+// Reject suggestion
+function rejectSuggestion(field) {
+    acceptedSuggestions.delete(field);
+    delete customModifications[field];
+    
+    // Update UI
+    updateSuggestionUI(field, false);
+}
+
+// Update suggestion UI
+function updateSuggestionUI(field, accepted) {
+    const suggestionItems = document.querySelectorAll('.suggestion-item');
+    suggestionItems.forEach(item => {
+        const fieldSpan = item.querySelector('.suggestion-field');
+        if (fieldSpan && fieldSpan.textContent === field) {
+            const actions = item.querySelector('.suggestion-actions');
+            if (accepted) {
+                actions.innerHTML = '<span style="color: #28a745; font-weight: bold;">✓ Accepted</span>';
+            } else {
+                actions.innerHTML = `
+                    <button class="accept-suggestion" onclick="acceptSuggestion('${field}', '${item.querySelector('.suggestion-suggested').textContent}')">
+                        Accept
+                    </button>
+                    <button class="reject-suggestion" onclick="rejectSuggestion('${field}')">
+                        Reject
+                    </button>
+                `;
+            }
+        }
+    });
+}
+
+// Add security field
+function addSecurityField() {
+    const container = document.getElementById('securitiesContainer');
+    const securityCount = container.children.length;
+    
+    const securityDiv = document.createElement('div');
+    securityDiv.className = 'security-item';
+    securityDiv.innerHTML = `
+        <div class="form-grid">
+            <div class="form-group">
+                <label>CUSIP *</label>
+                <input type="text" name="securities[${securityCount}].cusip" required maxlength="9">
+            </div>
+            <div class="form-group">
+                <label>Symbol</label>
+                <input type="text" name="securities[${securityCount}].symbol" maxlength="10">
+            </div>
+            <div class="form-group">
+                <label>Description *</label>
+                <input type="text" name="securities[${securityCount}].description" required>
+            </div>
+            <div class="form-group">
+                <label>Quantity *</label>
+                <input type="number" name="securities[${securityCount}].quantity" required min="1">
+            </div>
+            <div class="form-group">
+                <label>Asset Type *</label>
+                <select name="securities[${securityCount}].asset_type" required>
+                    <option value="">Select type...</option>
+                    <option value="equity">Equity</option>
+                    <option value="mutual_fund">Mutual Fund</option>
+                    <option value="bond">Bond</option>
+                    <option value="option">Option</option>
+                    <option value="cash">Cash</option>
+                </select>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(securityDiv);
+}
+
+// Show/hide loading overlay
+function showLoading(show) {
+    loadingOverlay.style.display = show ? 'flex' : 'none';
+}

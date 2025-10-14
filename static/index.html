@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACAT Correction Service</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ACAT Correction Service</h1>
+            <p>AI-powered validation and correction for DTCC ACAT transfers</p>
+        </header>
+
+        <div class="main-content">
+            <!-- ACAT Form -->
+            <div class="form-section">
+                <h2>ACAT Transfer Details</h2>
+                <form id="acatForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="deliveringAccount">Delivering Account *</label>
+                            <input type="text" id="deliveringAccount" name="delivering_account" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="receivingAccount">Receiving Account *</label>
+                            <input type="text" id="receivingAccount" name="receiving_account" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="contraFirm">Contra Firm (DTCC Participant) *</label>
+                            <select id="contraFirm" name="contra_firm" required>
+                                <option value="">Select contra firm...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="transferType">Transfer Type *</label>
+                            <select id="transferType" name="transfer_type" required>
+                                <option value="">Select type...</option>
+                                <option value="full">Full Transfer</option>
+                                <option value="partial">Partial Transfer</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Customer Information -->
+                    <h3>Customer Information</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="firstName">First Name *</label>
+                            <input type="text" id="firstName" name="customer.first_name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="lastName">Last Name *</label>
+                            <input type="text" id="lastName" name="customer.last_name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="ssn">SSN</label>
+                            <input type="text" id="ssn" name="customer.ssn" placeholder="XXX-XX-XXXX">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="taxId">Tax ID</label>
+                            <input type="text" id="taxId" name="customer.tax_id">
+                        </div>
+                    </div>
+
+                    <!-- Securities Section -->
+                    <h3>Securities</h3>
+                    <div id="securitiesContainer">
+                        <div class="security-item">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>CUSIP *</label>
+                                    <input type="text" name="securities[0].cusip" required maxlength="9">
+                                </div>
+                                <div class="form-group">
+                                    <label>Symbol</label>
+                                    <input type="text" name="securities[0].symbol" maxlength="10">
+                                </div>
+                                <div class="form-group">
+                                    <label>Description *</label>
+                                    <input type="text" name="securities[0].description" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Quantity *</label>
+                                    <input type="number" name="securities[0].quantity" required min="1">
+                                </div>
+                                <div class="form-group">
+                                    <label>Asset Type *</label>
+                                    <select name="securities[0].asset_type" required>
+                                        <option value="">Select type...</option>
+                                        <option value="equity">Equity</option>
+                                        <option value="mutual_fund">Mutual Fund</option>
+                                        <option value="bond">Bond</option>
+                                        <option value="option">Option</option>
+                                        <option value="cash">Cash</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" id="addSecurity" class="btn-secondary">+ Add Security</button>
+
+                    <!-- Special Instructions -->
+                    <div class="form-group">
+                        <label for="specialInstructions">Special Instructions</label>
+                        <textarea id="specialInstructions" name="special_instructions" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" id="validateBtn" class="btn-primary">Validate ACAT</button>
+                        <button type="button" id="submitBtn" class="btn-success" disabled>Submit to DTCC</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- AI Analysis Results -->
+            <div class="results-section" id="resultsSection" style="display: none;">
+                <h2>AI Analysis Results</h2>
+                
+                <div class="validation-status" id="validationStatus">
+                    <!-- Status will be populated by JavaScript -->
+                </div>
+
+                <div class="suggestions-container" id="suggestionsContainer">
+                    <!-- Suggestions will be populated by JavaScript -->
+                </div>
+
+                <div class="warnings-container" id="warningsContainer">
+                    <!-- Warnings will be populated by JavaScript -->
+                </div>
+
+                <div class="ai-analysis" id="aiAnalysis">
+                    <!-- AI analysis will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+            <div class="loading-spinner"></div>
+            <p>Analyzing ACAT data with AI...</p>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
