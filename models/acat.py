@@ -106,3 +106,22 @@ class ACATRecord(BaseModel):
     acat_data: ACATRequest = Field(..., description="Underlying ACAT request payload")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    status_history: List[dict] = Field(default_factory=list, description="History of status changes with reasons")
+
+
+class UserRole(str, Enum):
+    READ_ONLY = "read_only"
+    FULL = "full"
+
+
+class User(BaseModel):
+    id: str = Field(..., description="Unique user identifier")
+    username: str = Field(..., min_length=3, max_length=50, description="Username")
+    role: UserRole = Field(..., description="User role/permissions")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class StatusUpdateRequest(BaseModel):
+    status: ACATStatus = Field(..., description="New status")
+    reason: str = Field(..., min_length=1, max_length=500, description="Reason for status change")
+    updated_by: str = Field(..., description="User who made the change")

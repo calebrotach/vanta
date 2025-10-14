@@ -23,10 +23,21 @@ class InMemoryACATStore:
     def get(self, record_id: str) -> ACATRecord:
         return self._records[record_id]
 
-    def update_status(self, record_id: str, new_status: ACATStatus) -> ACATRecord:
+    def update_status(self, record_id: str, new_status: ACATStatus, reason: str, updated_by: str) -> ACATRecord:
         record = self._records[record_id]
+        old_status = record.status
         record.status = new_status
         record.updated_at = datetime.utcnow()
+        
+        # Add to status history
+        record.status_history.append({
+            "from_status": old_status,
+            "to_status": new_status,
+            "reason": reason,
+            "updated_by": updated_by,
+            "updated_at": datetime.utcnow().isoformat()
+        })
+        
         self._records[record_id] = record
         return record
 

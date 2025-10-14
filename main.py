@@ -10,7 +10,8 @@ from models.acat import ACATRequest, ACATValidationResponse, ACATSubmissionReque
 from services.claude_service import ClaudeACATService
 from services.validation_service import ACATValidationService
 from services.tracking_service import InMemoryACATStore
-from models.acat import ACATRecord, ACATStatus
+from services.auth_service import SimpleAuthService
+from models.acat import ACATRecord, ACATStatus, StatusUpdateRequest, UserRole
 
 # Load environment variables
 load_dotenv()
@@ -35,6 +36,69 @@ app.add_middleware(
 claude_service = ClaudeACATService()
 validation_service = ACATValidationService()
 tracking_store = InMemoryACATStore()
+auth_service = SimpleAuthService()
+
+# Seed dummy data
+def seed_dummy_data():
+    from models.acat import ACATRequest, TransferType, Security, AssetType, CustomerInfo
+    from datetime import datetime
+    
+    # Create sample ACAT records
+    sample_acat1 = ACATRequest(
+        delivering_account="DEL123456",
+        receiving_account="REC789012",
+        contra_firm="1234",
+        transfer_type=TransferType.FULL,
+        transfer_date=datetime.now(),
+        securities=[
+            Security(
+                cusip="123456789",
+                symbol="AAPL",
+                description="Apple Inc. Common Stock",
+                quantity=100,
+                asset_type=AssetType.EQUITY
+            )
+        ],
+        customer=CustomerInfo(
+            first_name="John",
+            last_name="Doe",
+            ssn="123-45-6789"
+        ),
+        special_instructions="Standard transfer"
+    )
+    
+    sample_acat2 = ACATRequest(
+        delivering_account="DEL654321",
+        receiving_account="REC210987",
+        contra_firm="5678",
+        transfer_type=TransferType.PARTIAL,
+        transfer_date=datetime.now(),
+        securities=[
+            Security(
+                cusip="987654321",
+                symbol="MSFT",
+                description="Microsoft Corporation Common Stock",
+                quantity=50,
+                asset_type=AssetType.EQUITY
+            )
+        ],
+        customer=CustomerInfo(
+            first_name="Jane",
+            last_name="Smith",
+            ssn="987-65-4321"
+        )
+    )
+    
+    # Create tracking records
+    record1 = tracking_store.create(sample_acat1)
+    record2 = tracking_store.create(sample_acat2)
+    
+    # Set different statuses
+    tracking_store.update_status(record1.id, ACATStatus.SUBMITTED, "Initial submission", "admin")
+    tracking_store.update_status(record2.id, ACATStatus.PENDING_REVIEW, "Under review", "admin")
+
+# Seed data on startup
+seed_dummy_data()
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -142,9 +206,9 @@ async def get_tracking_record(record_id: str):
 
 
 @app.patch("/api/tracking/{record_id}/status", response_model=ACATRecord)
-async def update_tracking_status(record_id: str, status: ACATStatus):
+async def update_tracking_status(record_id: str, update_request: StatusUpdateRequest):
     try:
-        return tracking_store.update_status(record_id, status)
+        return tracking_store.update_status(record_id, update_request.status, update_request.reason, update_request.updated_by)
     except KeyError:
         raise HTTPException(status_code=404, detail="Tracking record not found")
 
@@ -153,6 +217,38 @@ async def update_tracking_status(record_id: str, status: ACATStatus):
 async def delete_tracking_record(record_id: str):
     tracking_store.delete(record_id)
     return {"status": "deleted"}
+
+
+# --- Authentication endpoints ---
+
+@app.post("/api/auth/login")
+async def login(username: str):
+    user = auth_service.authenticate(username)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username")
+    
+    session_id = auth_service.create_session(user)
+    return {
+        "session_id": session_id,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "role": user.role
+        }
+    }
+
+
+@app.get("/api/auth/me")
+async def get_current_user(session_id: str):
+    user = auth_service.get_user_from_session(session_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid session")
+    
+    return {
+        "id": user.id,
+        "username": user.username,
+        "role": user.role
+    }
 
 @app.get("/api/contra-firms")
 async def get_contra_firms():

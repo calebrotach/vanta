@@ -11,6 +11,16 @@
         <header>
             <h1>ACAT Correction Service</h1>
             <p>AI-powered validation and correction for DTCC ACAT transfers</p>
+            <div id="authSection">
+                <div id="loginForm" style="display: block;">
+                    <input type="text" id="usernameInput" placeholder="Enter username (admin or viewer)" />
+                    <button onclick="login()">Login</button>
+                </div>
+                <div id="userInfo" style="display: none;">
+                    <span id="currentUser"></span>
+                    <button onclick="logout()">Logout</button>
+                </div>
+            </div>
         </header>
 
         <div class="main-content">

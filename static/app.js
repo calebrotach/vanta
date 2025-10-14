@@ -2,6 +2,8 @@
 let currentValidation = null;
 let acceptedSuggestions = new Set();
 let customModifications = {};
+let currentUser = null;
+let sessionId = null;
 
 // DOM elements
 const form = document.getElementById('acatForm');
@@ -16,7 +18,88 @@ document.addEventListener('DOMContentLoaded', function() {
     loadContraFirms();
     setupEventListeners();
     refreshACATList();
+    checkAuth();
 });
+
+// Authentication functions
+async function login() {
+    const username = document.getElementById('usernameInput').value.trim();
+    if (!username) {
+        alert('Please enter a username');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(username)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Login failed');
+        }
+        
+        const data = await response.json();
+        sessionId = data.session_id;
+        currentUser = data.user;
+        
+        updateAuthUI();
+        refreshACATList();
+    } catch (error) {
+        alert('Login failed: ' + error.message);
+    }
+}
+
+function logout() {
+    currentUser = null;
+    sessionId = null;
+    updateAuthUI();
+    refreshACATList();
+}
+
+function updateAuthUI() {
+    const loginForm = document.getElementById('loginForm');
+    const userInfo = document.getElementById('userInfo');
+    const currentUserSpan = document.getElementById('currentUser');
+    
+    if (currentUser) {
+        loginForm.style.display = 'none';
+        userInfo.style.display = 'block';
+        currentUserSpan.textContent = `${currentUser.username} (${currentUser.role})`;
+        updatePermissions();
+    } else {
+        loginForm.style.display = 'block';
+        userInfo.style.display = 'none';
+    }
+}
+
+function updatePermissions() {
+    const isReadOnly = currentUser && currentUser.role === 'read_only';
+    
+    // Disable form elements for read-only users
+    const formElements = document.querySelectorAll('#acatForm input, #acatForm select, #acatForm textarea, #acatForm button');
+    formElements.forEach(el => {
+        el.disabled = isReadOnly;
+    });
+    
+    // Hide form section for read-only users
+    const formSection = document.querySelector('.form-section');
+    if (formSection) {
+        formSection.style.display = isReadOnly ? 'none' : 'block';
+    }
+}
+
+function checkAuth() {
+    // Check if there's a stored session (for demo purposes)
+    const storedSession = localStorage.getItem('acat_session');
+    if (storedSession) {
+        sessionId = storedSession;
+        // In a real app, you'd validate the session with the server
+        currentUser = { username: 'demo', role: 'full' };
+        updateAuthUI();
+    }
+}
 
 // Load contra firms from API
 async function loadContraFirms() {
@@ -424,20 +507,49 @@ function renderACATList(acats) {
 }
 
 function renderStatusActions(record) {
+    const isReadOnly = currentUser && currentUser.role === 'read_only';
+    
+    if (isReadOnly) {
+        return `<span class="status-display">${record.status}</span>`;
+    }
+    
     const statuses = [
         'new','submitted','pending_review','pending_client','pending_delivering','pending_receiving','rejected','cancelled','completed'
     ];
     const options = statuses.map(s => `<option value="${s}" ${record.status===s?'selected':''}>${s}</option>`).join('');
     return `
-        <select onchange="updateRecordStatus('${record.id}', this.value)">
+        <select onchange="showStatusUpdateModal('${record.id}', this.value)">
             ${options}
         </select>
     `;
 }
 
-async function updateRecordStatus(id, status) {
+function showStatusUpdateModal(recordId, newStatus) {
+    const reason = prompt(`Enter reason for changing status to "${newStatus}":`);
+    if (reason && reason.trim()) {
+        updateRecordStatus(recordId, newStatus, reason.trim());
+    }
+}
+
+async function updateRecordStatus(id, status, reason) {
+    if (!currentUser) {
+        alert('Please login first');
+        return;
+    }
+    
     try {
-        const res = await fetch(`/api/tracking/${id}/status?status=${encodeURIComponent(status)}`, { method: 'PATCH' });
+        const updateRequest = {
+            status: status,
+            reason: reason,
+            updated_by: currentUser.username
+        };
+        
+        const res = await fetch(`/api/tracking/${id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateRequest)
+        });
+        
         if (!res.ok) throw new Error('Failed to update status');
         await refreshACATList();
     } catch (e) {
