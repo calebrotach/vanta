@@ -2,6 +2,8 @@
 let currentValidation = null;
 let acceptedSuggestions = new Set();
 let customModifications = {};
+let currentUser = null;
+let sessionId = null;
 
 // DOM elements
 const form = document.getElementById('acatForm');
@@ -15,7 +17,98 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 document.addEventListener('DOMContentLoaded', function() {
     loadContraFirms();
     setupEventListeners();
+    refreshACATList();
+    checkAuth();
 });
+
+// Authentication functions
+async function login() {
+    const username = document.getElementById('usernameInput').value.trim();
+    if (!username) {
+        alert('Please enter a username');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(username)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Login failed');
+        }
+        
+        const data = await response.json();
+        sessionId = data.session_id;
+        currentUser = data.user;
+        
+        updateAuthUI();
+        refreshACATList();
+    } catch (error) {
+        alert('Login failed: ' + error.message);
+    }
+}
+
+function logout() {
+    currentUser = null;
+    sessionId = null;
+    updateAuthUI();
+    refreshACATList();
+}
+
+function updateAuthUI() {
+    const loginForm = document.getElementById('loginForm');
+    const userInfo = document.getElementById('userInfo');
+    const currentUserSpan = document.getElementById('currentUser');
+    
+    if (currentUser) {
+        loginForm.style.display = 'none';
+        userInfo.style.display = 'block';
+        currentUserSpan.textContent = `${currentUser.username} (${currentUser.role})`;
+        updatePermissions();
+    } else {
+        loginForm.style.display = 'block';
+        userInfo.style.display = 'none';
+    }
+}
+
+function updatePermissions() {
+    const isReadOnly = currentUser && currentUser.role === 'read_only';
+    
+    // Disable form elements for read-only users
+    const formElements = document.querySelectorAll('#acatForm input, #acatForm select, #acatForm textarea, #acatForm button');
+    formElements.forEach(el => {
+        el.disabled = isReadOnly;
+    });
+    
+    // Hide form section for read-only users
+    const formSection = document.querySelector('.form-section');
+    if (formSection) {
+        formSection.style.display = isReadOnly ? 'none' : 'block';
+    }
+    
+    // Show learning analytics for full users
+    const learningSection = document.getElementById('learningSection');
+    if (learningSection) {
+        learningSection.style.display = currentUser && currentUser.role === 'full' ? 'block' : 'none';
+        if (currentUser && currentUser.role === 'full') {
+            loadLearningInsights();
+        }
+    }
+}
+
+function checkAuth() {
+    // Check if there's a stored session (for demo purposes)
+    const storedSession = localStorage.getItem('acat_session');
+    if (storedSession) {
+        sessionId = storedSession;
+        // In a real app, you'd validate the session with the server
+        currentUser = { username: 'demo', role: 'full' };
+        updateAuthUI();
+    }
+}
 
 // Load contra firms from API
 async function loadContraFirms() {
@@ -111,6 +204,7 @@ async function submitACAT() {
         
         const result = await response.json();
         alert(`ACAT submitted successfully!\nSubmission ID: ${result.submission_id}`);
+        refreshACATList();
         
         // Reset form
         form.reset();
@@ -371,4 +465,157 @@ function addSecurityField() {
 // Show/hide loading overlay
 function showLoading(show) {
     loadingOverlay.style.display = show ? 'flex' : 'none';
+}
+
+// --- Ongoing ACATs List ---
+async function refreshACATList() {
+    try {
+        const res = await fetch('/api/tracking');
+        if (!res.ok) return;
+        const acats = await res.json();
+        renderACATList(acats);
+    } catch (e) {
+        console.error('Failed to load ACAT list', e);
+    }
+}
+
+function renderACATList(acats) {
+    const container = document.getElementById('acatList');
+    if (!container) return;
+    if (!acats || acats.length === 0) {
+        container.innerHTML = '<p>No ongoing ACATs yet.</p>';
+        return;
+    }
+    const rows = acats.map(a => `
+        <tr>
+            <td>${a.id}</td>
+            <td>${a.acat_data.delivering_account}</td>
+            <td>${a.acat_data.receiving_account}</td>
+            <td><strong>${a.status}</strong></td>
+            <td>
+                ${renderStatusActions(a)}
+            </td>
+        </tr>
+    `).join('');
+    container.innerHTML = `
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Delivering</th>
+                    <th>Receiving</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+}
+
+function renderStatusActions(record) {
+    const isReadOnly = currentUser && currentUser.role === 'read_only';
+    
+    if (isReadOnly) {
+        return `<span class="status-display">${record.status}</span>`;
+    }
+    
+    const statuses = [
+        'new','submitted','pending_review','pending_client','pending_delivering','pending_receiving','rejected','cancelled','completed'
+    ];
+    const options = statuses.map(s => `<option value="${s}" ${record.status===s?'selected':''}>${s}</option>`).join('');
+    return `
+        <select onchange="showStatusUpdateModal('${record.id}', this.value)">
+            ${options}
+        </select>
+    `;
+}
+
+function showStatusUpdateModal(recordId, newStatus) {
+    const reason = prompt(`Enter reason for changing status to "${newStatus}":`);
+    if (reason && reason.trim()) {
+        updateRecordStatus(recordId, newStatus, reason.trim());
+    }
+}
+
+async function updateRecordStatus(id, status, reason) {
+    if (!currentUser) {
+        alert('Please login first');
+        return;
+    }
+    
+    try {
+        const updateRequest = {
+            status: status,
+            reason: reason,
+            updated_by: currentUser.username
+        };
+        
+        const res = await fetch(`/api/tracking/${id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateRequest)
+        });
+        
+        if (!res.ok) throw new Error('Failed to update status');
+        await refreshACATList();
+        
+        // Refresh learning insights after status change
+        if (currentUser.role === 'full') {
+            loadLearningInsights();
+        }
+    } catch (e) {
+        alert(e.message);
+    }
+}
+
+// --- Learning Analytics ---
+
+async function loadLearningInsights() {
+    try {
+        const res = await fetch('/api/learning/insights');
+        if (!res.ok) return;
+        const insights = await res.json();
+        renderLearningInsights(insights);
+    } catch (e) {
+        console.error('Failed to load learning insights', e);
+    }
+}
+
+function renderLearningInsights(insights) {
+    const container = document.getElementById('learningInsights');
+    if (!container) return;
+    
+    if (!insights.learning_active) {
+        container.innerHTML = '<p>No learning data available yet. Submit some ACATs to start learning!</p>';
+        return;
+    }
+    
+    const successRate = Math.round(insights.overall_success_rate * 100);
+    const problematicFirms = insights.problematic_firms.map(f => 
+        `${f.firm} (${Math.round(f.success_rate * 100)}% success, ${f.total_submissions} submissions)`
+    ).join('<br>');
+    
+    const commonIssues = insights.most_common_issues.map(([field, count]) => 
+        `${field}: ${count} occurrences`
+    ).join('<br>');
+    
+    container.innerHTML = `
+        <div class="learning-stats">
+            <h3>Overall Statistics</h3>
+            <p><strong>Total Firms:</strong> ${insights.total_firms}</p>
+            <p><strong>Total Submissions:</strong> ${insights.total_submissions}</p>
+            <p><strong>Overall Success Rate:</strong> ${successRate}%</p>
+        </div>
+        <div class="learning-issues">
+            <h3>Most Common Issues</h3>
+            <p>${commonIssues || 'No common issues identified yet'}</p>
+        </div>
+        <div class="learning-problematic">
+            <h3>Firms Needing Attention</h3>
+            <p>${problematicFirms || 'All firms performing well!'}</p>
+        </div>
+    `;
 }
