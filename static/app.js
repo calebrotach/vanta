@@ -30,10 +30,8 @@ async function login() {
     }
     
     try {
-        const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(username)
+        const response = await fetch(`/api/auth/login?username=${encodeURIComponent(username)}`, {
+            method: 'POST'
         });
         
         if (!response.ok) {
@@ -44,8 +42,208 @@ async function login() {
         sessionId = data.session_id;
         currentUser = data.user;
         
-        updateAuthUI();
-        refreshACATList();
+        // Open new window with authenticated interface
+        const newWindow = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+        
+        if (newWindow) {
+            // Write the authenticated interface HTML to the new window
+            newWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>ACAT Correction Service - ${currentUser.first_name} ${currentUser.last_name}</title>
+                    <link rel="stylesheet" href="/styles.css">
+                </head>
+                <body>
+                    <div class="container">
+                        <header>
+                            <h1>ACAT Correction Service</h1>
+                            <p>AI-powered validation and correction for DTCC ACAT transfers</p>
+                            <div id="authSection">
+                                <div id="userInfo" style="display: block;">
+                                    <span id="currentUser">${currentUser.first_name} ${currentUser.last_name} (${currentUser.username}) - ${currentUser.role}</span>
+                                    <button onclick="logout()">Logout</button>
+                                </div>
+                            </div>
+                        </header>
+
+                        <div class="main-content">
+                            <!-- ACAT Creation Wizard -->
+                            <div id="acatCreationWizard">
+                                <div class="wizard-container">
+                                    <div class="wizard-header">
+                                        <h2>Create New ACAT Request</h2>
+                                        <div class="wizard-progress">
+                                            <div class="progress-step active" data-step="1">Account Info</div>
+                                            <div class="progress-step" data-step="2">Customer Info</div>
+                                            <div class="progress-step" data-step="3">Securities</div>
+                                            <div class="progress-step" data-step="4">Review</div>
+                                        </div>
+                                    </div>
+
+                                    <form id="acatWizardForm">
+                                        <!-- Step 1: Account Information -->
+                                        <div class="wizard-step" id="step1">
+                                            <h3>Account Information</h3>
+                                            <div class="form-grid">
+                                                <div class="form-group">
+                                                    <label for="wizDeliveringAccount">Delivering Account *</label>
+                                                    <input type="text" id="wizDeliveringAccount" name="delivering_account" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="wizReceivingAccount">Receiving Account *</label>
+                                                    <input type="text" id="wizReceivingAccount" name="receiving_account" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="wizContraFirm">Contra Firm *</label>
+                                                    <select id="wizContraFirm" name="contra_firm" required>
+                                                        <option value="">Select contra firm...</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="wizTransferType">Transfer Type *</label>
+                                                    <select id="wizTransferType" name="transfer_type" required>
+                                                        <option value="">Select transfer type...</option>
+                                                        <option value="full">Full Transfer</option>
+                                                        <option value="partial">Partial Transfer</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Step 2: Customer Information -->
+                                        <div class="wizard-step" id="step2" style="display: none;">
+                                            <h3>Customer Information</h3>
+                                            <div class="form-grid">
+                                                <div class="form-group">
+                                                    <label for="wizFirstName">First Name *</label>
+                                                    <input type="text" id="wizFirstName" name="first_name" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="wizLastName">Last Name *</label>
+                                                    <input type="text" id="wizLastName" name="last_name" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="wizSSN">SSN *</label>
+                                                    <input type="text" id="wizSSN" name="ssn" required placeholder="123-45-6789">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="wizTaxId">Tax ID</label>
+                                                    <input type="text" id="wizTaxId" name="tax_id" placeholder="Optional">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Step 3: Securities -->
+                                        <div class="wizard-step" id="step3" style="display: none;">
+                                            <h3>Securities</h3>
+                                            <div id="wizSecuritiesContainer">
+                                                <div class="security-item">
+                                                    <div class="form-grid">
+                                                        <div class="form-group">
+                                                            <label>CUSIP *</label>
+                                                            <input type="text" name="cusip" required>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label>Symbol *</label>
+                                                            <input type="text" name="symbol" required>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label>Description *</label>
+                                                            <input type="text" name="description" required>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label>Quantity *</label>
+                                                            <input type="number" name="quantity" required min="1">
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label>Asset Type *</label>
+                                                            <select name="asset_type" required>
+                                                                <option value="">Select type...</option>
+                                                                <option value="equity">Equity</option>
+                                                                <option value="mutual_fund">Mutual Fund</option>
+                                                                <option value="bond">Bond</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button type="button" onclick="addWizardSecurity()" class="btn-secondary">Add Another Security</button>
+                                        </div>
+
+                                        <!-- Step 4: Review -->
+                                        <div class="wizard-step" id="step4" style="display: none;">
+                                            <h3>Review & Submit</h3>
+                                            <div id="wizReviewContent"></div>
+                                        </div>
+
+                                        <div class="wizard-actions">
+                                            <button type="button" onclick="prevStep()" id="wizPrevBtn" style="display: none;" class="btn-secondary">Previous</button>
+                                            <button type="button" onclick="nextStep()" id="wizNextBtn" class="btn-primary">Next</button>
+                                            <button type="submit" id="wizSubmitBtn" style="display: none;" class="btn-success">Create ACAT Request</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <!-- Ongoing ACATs -->
+                            <div class="results-section">
+                                <h2>Ongoing ACATs</h2>
+                                <div id="acatList">
+                                    <p>Loading ACATs...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Learning Analytics (for full users) -->
+                        <div id="learningAnalytics" style="display: none;">
+                            <div class="results-section">
+                                <h2>Learning Analytics</h2>
+                                <div id="learningInsights">
+                                    <p>Loading analytics...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <script>
+                        // Global variables
+                        let currentUser = ${JSON.stringify(currentUser)};
+                        let sessionId = '${sessionId}';
+                        let currentWizardStep = 1;
+                        const totalWizardSteps = 4;
+
+                        // Initialize the authenticated interface
+                        document.addEventListener('DOMContentLoaded', function() {
+                            loadContraFirms();
+                            refreshACATList();
+                            if (currentUser.role === 'full') {
+                                document.getElementById('learningAnalytics').style.display = 'block';
+                                loadLearningInsights();
+                            }
+                        });
+
+                        // Include all the necessary functions from the main app.js
+                        // (This would include all the functions like loadContraFirms, refreshACATList, etc.)
+                    </script>
+                    <script src="/app.js"></script>
+                </body>
+                </html>
+            `);
+            newWindow.document.close();
+            
+            // Close the current window after a short delay
+            setTimeout(() => {
+                window.close();
+            }, 1000);
+        } else {
+            // Fallback if popup was blocked
+            alert('Please allow popups for this site to use the login feature');
+            updateAuthUI();
+            refreshACATList();
+        }
     } catch (error) {
         alert('Login failed: ' + error.message);
     }
@@ -473,10 +671,73 @@ async function refreshACATList() {
         const res = await fetch('/api/tracking');
         if (!res.ok) return;
         const acats = await res.json();
+        renderStatusSummary(acats);
         renderACATList(acats);
     } catch (e) {
         console.error('Failed to load ACAT list', e);
     }
+}
+
+// Calculate business days between two dates
+function calculateBusinessDays(startDate, endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    let count = 0;
+    let current = new Date(start);
+    
+    while (current <= end) {
+        const dayOfWeek = current.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Not weekend
+            count++;
+        }
+        current.setDate(current.getDate() + 1);
+    }
+    return count;
+}
+
+// Render status summary dashboard
+function renderStatusSummary(acats) {
+    const container = document.getElementById('statusSummary');
+    if (!container) return;
+    
+    // Count by status
+    const statusCounts = {};
+    const statusLabels = {
+        'new': 'New',
+        'submitted': 'Submitted',
+        'pending_review': 'Pending Review',
+        'pending_client': 'Pending Client',
+        'pending_delivering': 'Pending Delivering',
+        'pending_receiving': 'Pending Receiving',
+        'rejected': 'Rejected',
+        'cancelled': 'Cancelled',
+        'completed': 'Completed'
+    };
+    
+    const statusColors = {
+        'completed': '#10b981',
+        'submitted': '#3b82f6',
+        'pending_review': '#3b82f6',
+        'pending_client': '#f59e0b',
+        'pending_delivering': '#f59e0b',
+        'pending_receiving': '#f59e0b',
+        'new': '#8b5cf6',
+        'rejected': '#ef4444',
+        'cancelled': '#ef4444'
+    };
+    
+    acats.forEach(acat => {
+        statusCounts[acat.status] = (statusCounts[acat.status] || 0) + 1;
+    });
+    
+    const cards = Object.entries(statusCounts).map(([status, count]) => `
+        <div class="status-card">
+            <div class="status-card-count" style="color: ${statusColors[status]}">${count}</div>
+            <div class="status-card-label" style="background: ${statusColors[status]}">${statusLabels[status]}</div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = cards || '<p>No ACATs to display</p>';
 }
 
 function renderACATList(acats) {
@@ -486,17 +747,27 @@ function renderACATList(acats) {
         container.innerHTML = '<p>No ongoing ACATs yet.</p>';
         return;
     }
-    const rows = acats.map(a => `
+    const now = new Date();
+    const rows = acats.map(a => {
+        const createdDate = new Date(a.created_at);
+        const formattedDate = createdDate.toLocaleDateString();
+        const businessDays = calculateBusinessDays(createdDate, now);
+        let daysClass = 'days-normal';
+        if (businessDays > 10) daysClass = 'days-critical';
+        else if (businessDays > 5) daysClass = 'days-warning';
+        
+        return `
         <tr>
-            <td>${a.id}</td>
+            <td>${a.id.substring(0, 8)}...</td>
             <td>${a.acat_data.delivering_account}</td>
             <td>${a.acat_data.receiving_account}</td>
-            <td><strong>${a.status}</strong></td>
+            <td>${formattedDate}<br><span class="days-elapsed ${daysClass}">${businessDays} business days</span></td>
             <td>
                 ${renderStatusActions(a)}
             </td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
     container.innerHTML = `
         <table class="table">
             <thead>
@@ -504,8 +775,8 @@ function renderACATList(acats) {
                     <th>ID</th>
                     <th>Delivering</th>
                     <th>Receiving</th>
+                    <th>Submitted / Days Elapsed</th>
                     <th>Status</th>
-                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
