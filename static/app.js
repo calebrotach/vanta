@@ -700,15 +700,25 @@ function renderStatusSummary(acats) {
     const container = document.getElementById('statusSummary');
     if (!container) return;
     
-    // Count by status
-    const statusCounts = {};
+    const total = acats.length;
+    if (total === 0) {
+        container.innerHTML = '<p>No ACATs to display</p>';
+        return;
+    }
+    
+    // Status order: workflow progression
+    const statusOrder = [
+        'new', 'submitted', 'pending_review', 'pending_client', 
+        'pending_delivering', 'pending_receiving', 'completed', 'rejected', 'cancelled'
+    ];
+    
     const statusLabels = {
         'new': 'New',
         'submitted': 'Submitted',
-        'pending_review': 'Pending Review',
-        'pending_client': 'Pending Client',
-        'pending_delivering': 'Pending Delivering',
-        'pending_receiving': 'Pending Receiving',
+        'pending_review': 'Review',
+        'pending_client': 'Client',
+        'pending_delivering': 'Delivering',
+        'pending_receiving': 'Receiving',
         'rejected': 'Rejected',
         'cancelled': 'Cancelled',
         'completed': 'Completed'
@@ -726,18 +736,85 @@ function renderStatusSummary(acats) {
         'cancelled': '#ef4444'
     };
     
+    // Count by status
+    const statusCounts = {};
     acats.forEach(acat => {
         statusCounts[acat.status] = (statusCounts[acat.status] || 0) + 1;
     });
     
-    const cards = Object.entries(statusCounts).map(([status, count]) => `
-        <div class="status-card">
-            <div class="status-card-count" style="color: ${statusColors[status]}">${count}</div>
-            <div class="status-card-label" style="background: ${statusColors[status]}">${statusLabels[status]}</div>
-        </div>
-    `).join('');
+    // Calculate metrics
+    const completed = statusCounts['completed'] || 0;
+    const failed = (statusCounts['rejected'] || 0) + (statusCounts['cancelled'] || 0);
+    const inProgress = total - completed - failed;
+    const successRate = total > 0 ? Math.round((completed / total) * 100) : 0;
     
-    container.innerHTML = cards || '<p>No ACATs to display</p>';
+    // Overview cards
+    const overview = `
+        <div class="status-overview">
+            <div class="summary-card">
+                <div class="summary-card-value" style="color: #1e3a8a">${total}</div>
+                <div class="summary-card-label">Total ACATs</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-card-value" style="color: ${inProgress > 0 ? '#f59e0b' : '#64748b'}">${inProgress}</div>
+                <div class="summary-card-label">In Progress</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-card-value" style="color: #10b981">${successRate}%</div>
+                <div class="summary-card-label">Success Rate</div>
+            </div>
+        </div>
+    `;
+    
+    // Distribution bar
+    const distributionSegments = statusOrder
+        .filter(status => statusCounts[status] > 0)
+        .map(status => {
+            const count = statusCounts[status];
+            const percentage = (count / total) * 100;
+            return `
+                <div class="distribution-segment" 
+                     style="width: ${percentage}%; background: ${statusColors[status]}" 
+                     title="${statusLabels[status]}: ${count}">
+                    ${percentage >= 8 ? count : ''}
+                </div>
+            `;
+        }).join('');
+    
+    const legend = statusOrder
+        .filter(status => statusCounts[status] > 0)
+        .map(status => `
+            <div class="legend-item">
+                <div class="legend-color" style="background: ${statusColors[status]}"></div>
+                <span>${statusLabels[status]}: ${statusCounts[status]}</span>
+            </div>
+        `).join('');
+    
+    const distribution = `
+        <div class="status-distribution">
+            <h3>Status Distribution</h3>
+            <div class="distribution-bar">${distributionSegments}</div>
+            <div class="distribution-legend">${legend}</div>
+        </div>
+    `;
+    
+    // Status cards in logical order
+    const cards = statusOrder
+        .filter(status => statusCounts[status] > 0)
+        .map(status => `
+            <div class="status-card" style="border-left-color: ${statusColors[status]}">
+                <div class="status-card-count" style="color: ${statusColors[status]}">${statusCounts[status]}</div>
+                <div class="status-card-label">${statusLabels[status]}</div>
+            </div>
+        `).join('');
+    
+    container.innerHTML = `
+        ${overview}
+        ${distribution}
+        <div class="status-grid">
+            ${cards}
+        </div>
+    `;
 }
 
 function renderACATList(acats) {
@@ -929,6 +1006,301 @@ async function createUserAccount() {
     }
 }
 
+// --- Signup Flow ---
+let currentSignupStep = 1;
+
+function showSignup() {
+    document.getElementById('loginForm').style.display = 'none';
+    document.querySelector('.main-content').style.display = 'none';
+    document.getElementById('signupFlow').style.display = 'block';
+    currentSignupStep = 1;
+    updateSignupProgress();
+}
+
+function showLogin() {
+    document.getElementById('signupFlow').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+    document.querySelector('.main-content').style.display = 'flex';
+}
+
+function nextSignupStep() {
+    // Validate current step
+    const form = document.getElementById('signupForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    currentSignupStep = 2;
+    updateSignupProgress();
+}
+
+function prevSignupStep() {
+    currentSignupStep = 1;
+    updateSignupProgress();
+}
+
+function updateSignupProgress() {
+    // Update progress dots
+    document.querySelectorAll('.progress-dot').forEach((dot, index) => {
+        if (index + 1 === currentSignupStep) {
+            dot.classList.add('active');
+        } else {
+            dot.classList.remove('active');
+        }
+    });
+    
+    // Update step visibility
+    document.querySelectorAll('.signup-step').forEach((step, index) => {
+        if (index + 1 === currentSignupStep) {
+            step.classList.add('active');
+        } else {
+            step.classList.remove('active');
+        }
+    });
+}
+
+async function completeSignup() {
+    const selectedRole = document.querySelector('input[name="userRole"]:checked');
+    if (!selectedRole) {
+        alert('Please select a permission level');
+        return;
+    }
+    
+    const userData = {
+        username: document.getElementById('signupUsername').value,
+        first_name: document.getElementById('signupFirstName').value,
+        last_name: document.getElementById('signupLastName').value,
+        email: document.getElementById('signupEmail').value,
+        phone_number: document.getElementById('signupPhone').value || null,
+        role: selectedRole.value
+    };
+    
+    try {
+        const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Registration failed');
+        }
+        
+        alert('Account created successfully! Please log in with your username.');
+        showLogin();
+        
+        // Reset form
+        document.getElementById('signupForm').reset();
+        document.querySelectorAll('input[name="userRole"]').forEach(r => r.checked = false);
+        currentSignupStep = 1;
+    } catch (error) {
+        alert('Signup failed: ' + error.message);
+    }
+}
+
+// Add click handlers for role selection
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.role-option')) {
+        const option = e.target.closest('.role-option');
+        document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
+        option.classList.add('selected');
+        option.querySelector('input[type="radio"]').checked = true;
+    }
+});
+
+// --- ACAT Entry Flow ---
+let currentACATEntry = null;
+
+function openNewACATEntry() {
+    if (!currentUser) {
+        alert('Please log in first');
+        return;
+    }
+    
+    // Hide main content
+    document.querySelector('.main-content').style.display = 'none';
+    document.getElementById('acatEntryFlow').style.display = 'block';
+    
+    // Set audit username
+    document.getElementById('auditUsername').textContent = currentUser.username;
+    
+    // Generate a new ACAT with placeholder data
+    currentACATEntry = {
+        delivering_account: '',
+        receiving_account: '',
+        contra_firm: '',
+        transfer_type: 'full',
+        customer: {
+            first_name: '',
+            last_name: '',
+            ssn: '',
+            tax_id: ''
+        },
+        securities: [{
+            cusip: '',
+            symbol: '',
+            description: '',
+            quantity: 0,
+            asset_type: 'equity'
+        }],
+        special_instructions: ''
+    };
+    
+    // Load contra firms into dropdown
+    loadEntryContraFirms();
+    
+    // Populate form
+    populateACATEntry();
+    
+    // Hide notification
+    document.getElementById('newACATNotification').style.display = 'none';
+}
+
+function closeACATEntry() {
+    document.getElementById('acatEntryFlow').style.display = 'none';
+    document.querySelector('.main-content').style.display = 'flex';
+    currentACATEntry = null;
+}
+
+async function loadEntryContraFirms() {
+    try {
+        const response = await fetch('/api/contra-firms');
+        const firms = await response.json();
+        const select = document.getElementById('entryContraFirm');
+        select.innerHTML = '<option value="">Select firm...</option>' + 
+            firms.map(f => `<option value="${f.id}">${f.name} (${f.id})</option>`).join('');
+    } catch (error) {
+        console.error('Failed to load contra firms:', error);
+    }
+}
+
+function populateACATEntry() {
+    if (!currentACATEntry) return;
+    
+    document.getElementById('entryDeliveringAccount').value = currentACATEntry.delivering_account || '';
+    document.getElementById('entryReceivingAccount').value = currentACATEntry.receiving_account || '';
+    document.getElementById('entryContraFirm').value = currentACATEntry.contra_firm || '';
+    document.getElementById('entryTransferType').value = currentACATEntry.transfer_type || 'full';
+    document.getElementById('entryFirstName').value = currentACATEntry.customer?.first_name || '';
+    document.getElementById('entryLastName').value = currentACATEntry.customer?.last_name || '';
+    document.getElementById('entrySSN').value = currentACATEntry.customer?.ssn || '';
+    document.getElementById('entryTaxID').value = currentACATEntry.customer?.tax_id || '';
+    document.getElementById('entryInstructions').value = currentACATEntry.special_instructions || '';
+    
+    // Render securities
+    const securitiesContainer = document.getElementById('entrySecurities');
+    const securities = currentACATEntry.securities || [];
+    securitiesContainer.innerHTML = securities.map((sec, idx) => `
+        <div class="field-row" style="margin-bottom: 12px; padding: 16px; background: #f8fafc; border-radius: 8px;">
+            <div class="field-item">
+                <label class="field-label">CUSIP</label>
+                <input type="text" class="field-value" id="entrySec${idx}CUSIP" value="${sec.cusip || ''}">
+            </div>
+            <div class="field-item">
+                <label class="field-label">Symbol</label>
+                <input type="text" class="field-value" id="entrySec${idx}Symbol" value="${sec.symbol || ''}">
+            </div>
+            <div class="field-item">
+                <label class="field-label">Quantity</label>
+                <input type="number" class="field-value" id="entrySec${idx}Qty" value="${sec.quantity || 0}">
+            </div>
+            <div class="field-item">
+                <label class="field-label">Asset Type</label>
+                <select class="field-value" id="entrySec${idx}Type">
+                    <option value="equity" ${sec.asset_type === 'equity' ? 'selected' : ''}>Equity</option>
+                    <option value="mutual_fund" ${sec.asset_type === 'mutual_fund' ? 'selected' : ''}>Mutual Fund</option>
+                    <option value="bond" ${sec.asset_type === 'bond' ? 'selected' : ''}>Bond</option>
+                </select>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function saveACATEntry() {
+    if (!currentUser) {
+        alert('Please log in first');
+        return;
+    }
+    
+    // Gather data from form
+    const acatData = {
+        delivering_account: document.getElementById('entryDeliveringAccount').value,
+        receiving_account: document.getElementById('entryReceivingAccount').value,
+        contra_firm: document.getElementById('entryContraFirm').value,
+        transfer_type: document.getElementById('entryTransferType').value,
+        customer: {
+            first_name: document.getElementById('entryFirstName').value,
+            last_name: document.getElementById('entryLastName').value,
+            ssn: document.getElementById('entrySSN').value,
+            tax_id: document.getElementById('entryTaxID').value || null
+        },
+        securities: [],
+        special_instructions: document.getElementById('entryInstructions').value
+    };
+    
+    // Collect securities data
+    const securityDivs = document.querySelectorAll('#entrySecurities > div');
+    securityDivs.forEach((div, idx) => {
+        const cusip = document.getElementById(`entrySec${idx}CUSIP`).value;
+        const symbol = document.getElementById(`entrySec${idx}Symbol`).value;
+        if (cusip && symbol) {
+            acatData.securities.push({
+                cusip: cusip,
+                symbol: symbol,
+                description: `${symbol} Security`,
+                quantity: parseInt(document.getElementById(`entrySec${idx}Qty`).value) || 0,
+                asset_type: document.getElementById(`entrySec${idx}Type`).value
+            });
+        }
+    });
+    
+    // Validate
+    if (!acatData.delivering_account || !acatData.receiving_account || !acatData.contra_firm) {
+        alert('Please fill in all required account information');
+        return;
+    }
+    
+    if (acatData.securities.length === 0) {
+        alert('Please add at least one security');
+        return;
+    }
+    
+    try {
+        // Submit as a new ACAT
+        const response = await fetch('/api/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                acat_data: acatData,
+                accepted_suggestions: [],
+                custom_modifications: {}
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to submit ACAT');
+        }
+        
+        const result = await response.json();
+        alert(`ACAT submitted successfully!\nSubmission ID: ${result.submission_id}`);
+        
+        closeACATEntry();
+        refreshACATList();
+    } catch (error) {
+        alert('Failed to save ACAT: ' + error.message);
+    }
+}
+
+// Show new ACAT notification (simulate receiving a new ACAT)
+function showNewACATNotification() {
+    const notification = document.getElementById('newACATNotification');
+    if (notification && currentUser && currentUser.role === 'full') {
+        notification.style.display = 'flex';
+    }
+}
+
 // Setup event listeners
 document.addEventListener('DOMContentLoaded', function() {
     // Existing event listeners...
@@ -945,4 +1317,7 @@ document.addEventListener('DOMContentLoaded', function() {
             createUserAccount();
         });
     }
+    
+    // Simulate showing new ACAT notification after 5 seconds (for demo)
+    setTimeout(showNewACATNotification, 5000);
 });
