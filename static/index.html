@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ACAT Correction Service</title>
-    <link rel="stylesheet" href="/static/styles.css?v=3">
+    <link rel="stylesheet" href="/static/styles.css?v=7">
 </head>
 <body>
     <div class="container">
@@ -13,8 +13,9 @@
             <p>AI-powered validation and correction for DTCC ACAT transfers</p>
             <div id="authSection">
                 <div id="loginForm" style="display: block;">
-                    <input type="text" id="usernameInput" placeholder="Enter username (admin or viewer)" />
+                    <input type="text" id="usernameInput" placeholder="Enter username" />
                     <button onclick="login()">Login</button>
+                    <button onclick="showSignup()" style="background: white; color: #1e3a8a;">Sign Up</button>
                 </div>
                 <div id="userInfo" style="display: none;">
                     <span id="currentUser"></span>
@@ -22,6 +23,203 @@
                 </div>
             </div>
         </header>
+
+        <!-- Signup Flow -->
+        <div id="signupFlow" style="display: none;">
+            <div class="signup-container">
+                <div class="signup-header">
+                    <h1>Create Your Account</h1>
+                    <p>Join the ACAT Correction Service</p>
+                    <div class="signup-progress">
+                        <div class="progress-dot active" data-step="1"></div>
+                        <div class="progress-dot" data-step="2"></div>
+                    </div>
+                </div>
+                <div class="signup-body">
+                    <!-- Step 1: Personal Information -->
+                    <div id="signupStep1" class="signup-step active">
+                        <h2 style="margin-bottom: 24px; color: #1e3a8a;">Personal Information</h2>
+                        <form id="signupForm">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="signupFirstName">First Name *</label>
+                                    <input type="text" id="signupFirstName" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="signupLastName">Last Name *</label>
+                                    <input type="text" id="signupLastName" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="signupEmail">Email Address *</label>
+                                <input type="email" id="signupEmail" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="signupPhone">Phone Number</label>
+                                <input type="tel" id="signupPhone" placeholder="+1-555-123-4567">
+                            </div>
+                            <div class="form-group">
+                                <label for="signupUsername">Username *</label>
+                                <input type="text" id="signupUsername" required minlength="3">
+                            </div>
+                            
+                            <div class="info-box">
+                                <h4>📝 About Your Username</h4>
+                                <p>Your username will be used to identify you in audit logs and will appear whenever you make changes to ACAT records, such as updating statuses or modifying data. Choose a professional username.</p>
+                            </div>
+                            
+                            <div class="signup-actions">
+                                <button type="button" class="btn-secondary" onclick="showLogin()">Cancel</button>
+                                <button type="button" class="btn-primary" onclick="nextSignupStep()">Continue</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Step 2: Permissions -->
+                    <div id="signupStep2" class="signup-step">
+                        <h2 style="margin-bottom: 24px; color: #1e3a8a;">Account Permissions</h2>
+                        
+                        <div class="info-box">
+                            <h4>🔐 Permission Levels</h4>
+                            <p>Select the appropriate permission level for your role. This determines what actions you can perform in the system.</p>
+                        </div>
+                        
+                        <div class="role-selector" id="roleSelector">
+                            <label class="role-option">
+                                <div style="display: flex; align-items: center;">
+                                    <input type="radio" name="userRole" value="read_only">
+                                    <div>
+                                        <div class="role-title">Viewer (Read-Only)</div>
+                                        <div class="role-description">View ACAT data and reports but cannot make changes</div>
+                                    </div>
+                                </div>
+                            </label>
+                            <label class="role-option">
+                                <div style="display: flex; align-items: center;">
+                                    <input type="radio" name="userRole" value="full">
+                                    <div>
+                                        <div class="role-title">Administrator (Full Access)</div>
+                                        <div class="role-description">Full access to create, edit, and manage ACATs. All actions are audit-logged with your username.</div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="audit-note">
+                            <div class="audit-note-icon">⚠️</div>
+                            <div class="audit-note-text">
+                                <h4>Audit Trail Notice</h4>
+                                <p>All changes you make will be recorded in an audit log with your username and timestamp. This ensures accountability and traceability for compliance purposes.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="signup-actions">
+                            <button type="button" class="btn-secondary" onclick="prevSignupStep()">Back</button>
+                            <button type="button" class="btn-success" onclick="completeSignup()">Create Account</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACAT Creation Wizard Flow -->
+        <div id="acatCreationFlow" style="display: none;">
+            <div class="wizard-container">
+                <div class="wizard-header">
+                    <h2>Create New ACAT Request</h2>
+                    <div class="wizard-progress">
+                        <div class="progress-step active" data-step="1">Customer Details</div>
+                        <div class="progress-step" data-step="2">Firm Details</div>
+                        <div class="progress-step" data-step="3">Securities</div>
+                    </div>
+                </div>
+                
+                <div class="wizard-body">
+                    <div class="audit-note">
+                        <div class="audit-note-icon">⚠️</div>
+                        <div class="audit-note-text">
+                            <h4>Audit Trail Enabled</h4>
+                            <p>This ACAT will be created by <strong id="creatorUsername"></strong> and all changes will be tracked for compliance.</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 1: Customer Details -->
+                    <div id="acatStep1" class="wizard-step active">
+                        <h3 style="color: #1e3a8a; margin-bottom: 20px;">Customer Information</h3>
+                        <div class="field-row">
+                            <div class="field-item">
+                                <label class="field-label">First Name *</label>
+                                <input type="text" class="field-value" id="createFirstName" required>
+                            </div>
+                            <div class="field-item">
+                                <label class="field-label">Last Name *</label>
+                                <input type="text" class="field-value" id="createLastName" required>
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-item">
+                                <label class="field-label">SSN *</label>
+                                <input type="text" class="field-value" id="createSSN" required placeholder="XXX-XX-XXXX">
+                            </div>
+                            <div class="field-item">
+                                <label class="field-label">Tax ID (Optional)</label>
+                                <input type="text" class="field-value" id="createTaxID">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Firm Details -->
+                    <div id="acatStep2" class="wizard-step" style="display: none;">
+                        <h3 style="color: #1e3a8a; margin-bottom: 20px;">Account & Firm Information</h3>
+                        <div class="field-row">
+                            <div class="field-item">
+                                <label class="field-label">Delivering Account *</label>
+                                <input type="text" class="field-value" id="createDeliveringAccount" required>
+                            </div>
+                            <div class="field-item">
+                                <label class="field-label">Receiving Account *</label>
+                                <input type="text" class="field-value" id="createReceivingAccount" required>
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-item">
+                                <label class="field-label">Contra Firm *</label>
+                                <select class="field-value" id="createContraFirm" required>
+                                    <option value="">Select contra firm...</option>
+                                </select>
+                            </div>
+                            <div class="field-item">
+                                <label class="field-label">Transfer Type *</label>
+                                <select class="field-value" id="createTransferType" required>
+                                    <option value="full">Full Transfer</option>
+                                    <option value="partial">Partial Transfer</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field-item">
+                            <label class="field-label">Special Instructions</label>
+                            <textarea class="field-value" id="createInstructions" rows="3" style="width: 100%;"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Securities -->
+                    <div id="acatStep3" class="wizard-step" style="display: none;">
+                        <h3 style="color: #1e3a8a; margin-bottom: 20px;">Securities Information</h3>
+                        <div id="createSecuritiesContainer"></div>
+                        <button type="button" class="btn-secondary" onclick="addCreateSecurity()" style="margin-top: 12px;">
+                            ➕ Add Another Security
+                        </button>
+                    </div>
+
+                    <div class="wizard-actions">
+                        <button type="button" id="createPrevBtn" class="btn-secondary" onclick="prevACATStep()" style="display: none;">Previous</button>
+                        <button type="button" id="createNextBtn" class="btn-primary" onclick="nextACATStep()">Next</button>
+                        <button type="button" id="createSubmitBtn" class="btn-success" onclick="submitNewACAT()" style="display: none;">Create ACAT</button>
+                        <button type="button" class="btn-secondary" onclick="cancelACATCreation()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="main-content">
             <!-- Onboarding Flow -->
@@ -357,6 +555,13 @@
             <!-- Ongoing ACATs -->
             <div class="results-section">
                 <h2>Ongoing ACATs</h2>
+                
+                <!-- Create New ACAT CTA -->
+                <div id="createACATButton" style="margin-bottom: 20px;">
+                    <button class="btn-primary" onclick="startACATCreation()" style="width: 100%; padding: 16px; font-size: 16px;">
+                        ✨ Create New ACAT Request
+                    </button>
+                </div>
                 
                 <!-- Status Summary Dashboard -->
                 <div id="statusSummary" class="status-summary"></div>

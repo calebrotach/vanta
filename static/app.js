@@ -42,207 +42,11 @@ async function login() {
         sessionId = data.session_id;
         currentUser = data.user;
         
-        // Open new window with authenticated interface
-        const newWindow = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-        
-        if (newWindow) {
-            // Write the authenticated interface HTML to the new window
-            newWindow.document.write(`
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>ACAT Correction Service - ${currentUser.first_name} ${currentUser.last_name}</title>
-                    <link rel="stylesheet" href="/styles.css">
-                </head>
-                <body>
-                    <div class="container">
-                        <header>
-                            <h1>ACAT Correction Service</h1>
-                            <p>AI-powered validation and correction for DTCC ACAT transfers</p>
-                            <div id="authSection">
-                                <div id="userInfo" style="display: block;">
-                                    <span id="currentUser">${currentUser.first_name} ${currentUser.last_name} (${currentUser.username}) - ${currentUser.role}</span>
-                                    <button onclick="logout()">Logout</button>
-                                </div>
-                            </div>
-                        </header>
-
-                        <div class="main-content">
-                            <!-- ACAT Creation Wizard -->
-                            <div id="acatCreationWizard">
-                                <div class="wizard-container">
-                                    <div class="wizard-header">
-                                        <h2>Create New ACAT Request</h2>
-                                        <div class="wizard-progress">
-                                            <div class="progress-step active" data-step="1">Account Info</div>
-                                            <div class="progress-step" data-step="2">Customer Info</div>
-                                            <div class="progress-step" data-step="3">Securities</div>
-                                            <div class="progress-step" data-step="4">Review</div>
-                                        </div>
-                                    </div>
-
-                                    <form id="acatWizardForm">
-                                        <!-- Step 1: Account Information -->
-                                        <div class="wizard-step" id="step1">
-                                            <h3>Account Information</h3>
-                                            <div class="form-grid">
-                                                <div class="form-group">
-                                                    <label for="wizDeliveringAccount">Delivering Account *</label>
-                                                    <input type="text" id="wizDeliveringAccount" name="delivering_account" required>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="wizReceivingAccount">Receiving Account *</label>
-                                                    <input type="text" id="wizReceivingAccount" name="receiving_account" required>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="wizContraFirm">Contra Firm *</label>
-                                                    <select id="wizContraFirm" name="contra_firm" required>
-                                                        <option value="">Select contra firm...</option>
-                                                    </select>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="wizTransferType">Transfer Type *</label>
-                                                    <select id="wizTransferType" name="transfer_type" required>
-                                                        <option value="">Select transfer type...</option>
-                                                        <option value="full">Full Transfer</option>
-                                                        <option value="partial">Partial Transfer</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Step 2: Customer Information -->
-                                        <div class="wizard-step" id="step2" style="display: none;">
-                                            <h3>Customer Information</h3>
-                                            <div class="form-grid">
-                                                <div class="form-group">
-                                                    <label for="wizFirstName">First Name *</label>
-                                                    <input type="text" id="wizFirstName" name="first_name" required>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="wizLastName">Last Name *</label>
-                                                    <input type="text" id="wizLastName" name="last_name" required>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="wizSSN">SSN *</label>
-                                                    <input type="text" id="wizSSN" name="ssn" required placeholder="123-45-6789">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="wizTaxId">Tax ID</label>
-                                                    <input type="text" id="wizTaxId" name="tax_id" placeholder="Optional">
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Step 3: Securities -->
-                                        <div class="wizard-step" id="step3" style="display: none;">
-                                            <h3>Securities</h3>
-                                            <div id="wizSecuritiesContainer">
-                                                <div class="security-item">
-                                                    <div class="form-grid">
-                                                        <div class="form-group">
-                                                            <label>CUSIP *</label>
-                                                            <input type="text" name="cusip" required>
-                                                        </div>
-                                                        <div class="form-group">
-                                                            <label>Symbol *</label>
-                                                            <input type="text" name="symbol" required>
-                                                        </div>
-                                                        <div class="form-group">
-                                                            <label>Description *</label>
-                                                            <input type="text" name="description" required>
-                                                        </div>
-                                                        <div class="form-group">
-                                                            <label>Quantity *</label>
-                                                            <input type="number" name="quantity" required min="1">
-                                                        </div>
-                                                        <div class="form-group">
-                                                            <label>Asset Type *</label>
-                                                            <select name="asset_type" required>
-                                                                <option value="">Select type...</option>
-                                                                <option value="equity">Equity</option>
-                                                                <option value="mutual_fund">Mutual Fund</option>
-                                                                <option value="bond">Bond</option>
-                                                            </select>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <button type="button" onclick="addWizardSecurity()" class="btn-secondary">Add Another Security</button>
-                                        </div>
-
-                                        <!-- Step 4: Review -->
-                                        <div class="wizard-step" id="step4" style="display: none;">
-                                            <h3>Review & Submit</h3>
-                                            <div id="wizReviewContent"></div>
-                                        </div>
-
-                                        <div class="wizard-actions">
-                                            <button type="button" onclick="prevStep()" id="wizPrevBtn" style="display: none;" class="btn-secondary">Previous</button>
-                                            <button type="button" onclick="nextStep()" id="wizNextBtn" class="btn-primary">Next</button>
-                                            <button type="submit" id="wizSubmitBtn" style="display: none;" class="btn-success">Create ACAT Request</button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-
-                            <!-- Ongoing ACATs -->
-                            <div class="results-section">
-                                <h2>Ongoing ACATs</h2>
-                                <div id="acatList">
-                                    <p>Loading ACATs...</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Learning Analytics (for full users) -->
-                        <div id="learningAnalytics" style="display: none;">
-                            <div class="results-section">
-                                <h2>Learning Analytics</h2>
-                                <div id="learningInsights">
-                                    <p>Loading analytics...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <script>
-                        // Global variables
-                        let currentUser = ${JSON.stringify(currentUser)};
-                        let sessionId = '${sessionId}';
-                        let currentWizardStep = 1;
-                        const totalWizardSteps = 4;
-
-                        // Initialize the authenticated interface
-                        document.addEventListener('DOMContentLoaded', function() {
-                            loadContraFirms();
-                            refreshACATList();
-                            if (currentUser.role === 'full') {
-                                document.getElementById('learningAnalytics').style.display = 'block';
-                                loadLearningInsights();
-                            }
-                        });
-
-                        // Include all the necessary functions from the main app.js
-                        // (This would include all the functions like loadContraFirms, refreshACATList, etc.)
-                    </script>
-                    <script src="/app.js"></script>
-                </body>
-                </html>
-            `);
-            newWindow.document.close();
-            
-            // Close the current window after a short delay
-            setTimeout(() => {
-                window.close();
-            }, 1000);
-        } else {
-            // Fallback if popup was blocked
-            alert('Please allow popups for this site to use the login feature');
-            updateAuthUI();
-            refreshACATList();
+        // Don't open new window, just update the UI
+        updateAuthUI();
+        refreshACATList();
+        if (currentUser.role === 'full') {
+            loadLearningInsights();
         }
     } catch (error) {
         alert('Login failed: ' + error.message);
@@ -700,15 +504,25 @@ function renderStatusSummary(acats) {
     const container = document.getElementById('statusSummary');
     if (!container) return;
     
-    // Count by status
-    const statusCounts = {};
+    const total = acats.length;
+    if (total === 0) {
+        container.innerHTML = '<p>No ACATs to display</p>';
+        return;
+    }
+    
+    // Status order: workflow progression
+    const statusOrder = [
+        'new', 'submitted', 'pending_review', 'pending_client', 
+        'pending_delivering', 'pending_receiving', 'completed', 'rejected', 'cancelled'
+    ];
+    
     const statusLabels = {
         'new': 'New',
         'submitted': 'Submitted',
-        'pending_review': 'Pending Review',
-        'pending_client': 'Pending Client',
-        'pending_delivering': 'Pending Delivering',
-        'pending_receiving': 'Pending Receiving',
+        'pending_review': 'Review',
+        'pending_client': 'Client',
+        'pending_delivering': 'Delivering',
+        'pending_receiving': 'Receiving',
         'rejected': 'Rejected',
         'cancelled': 'Cancelled',
         'completed': 'Completed'
@@ -726,18 +540,85 @@ function renderStatusSummary(acats) {
         'cancelled': '#ef4444'
     };
     
+    // Count by status
+    const statusCounts = {};
     acats.forEach(acat => {
         statusCounts[acat.status] = (statusCounts[acat.status] || 0) + 1;
     });
     
-    const cards = Object.entries(statusCounts).map(([status, count]) => `
-        <div class="status-card">
-            <div class="status-card-count" style="color: ${statusColors[status]}">${count}</div>
-            <div class="status-card-label" style="background: ${statusColors[status]}">${statusLabels[status]}</div>
-        </div>
-    `).join('');
+    // Calculate metrics
+    const completed = statusCounts['completed'] || 0;
+    const failed = (statusCounts['rejected'] || 0) + (statusCounts['cancelled'] || 0);
+    const inProgress = total - completed - failed;
+    const successRate = total > 0 ? Math.round((completed / total) * 100) : 0;
     
-    container.innerHTML = cards || '<p>No ACATs to display</p>';
+    // Overview cards
+    const overview = `
+        <div class="status-overview">
+            <div class="summary-card">
+                <div class="summary-card-value" style="color: #1e3a8a">${total}</div>
+                <div class="summary-card-label">Total ACATs</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-card-value" style="color: ${inProgress > 0 ? '#f59e0b' : '#64748b'}">${inProgress}</div>
+                <div class="summary-card-label">In Progress</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-card-value" style="color: #10b981">${successRate}%</div>
+                <div class="summary-card-label">Success Rate</div>
+            </div>
+        </div>
+    `;
+    
+    // Distribution bar
+    const distributionSegments = statusOrder
+        .filter(status => statusCounts[status] > 0)
+        .map(status => {
+            const count = statusCounts[status];
+            const percentage = (count / total) * 100;
+            return `
+                <div class="distribution-segment" 
+                     style="width: ${percentage}%; background: ${statusColors[status]}" 
+                     title="${statusLabels[status]}: ${count}">
+                    ${percentage >= 8 ? count : ''}
+                </div>
+            `;
+        }).join('');
+    
+    const legend = statusOrder
+        .filter(status => statusCounts[status] > 0)
+        .map(status => `
+            <div class="legend-item">
+                <div class="legend-color" style="background: ${statusColors[status]}"></div>
+                <span>${statusLabels[status]}: ${statusCounts[status]}</span>
+            </div>
+        `).join('');
+    
+    const distribution = `
+        <div class="status-distribution">
+            <h3>Status Distribution</h3>
+            <div class="distribution-bar">${distributionSegments}</div>
+            <div class="distribution-legend">${legend}</div>
+        </div>
+    `;
+    
+    // Status cards in logical order
+    const cards = statusOrder
+        .filter(status => statusCounts[status] > 0)
+        .map(status => `
+            <div class="status-card" style="border-left-color: ${statusColors[status]}">
+                <div class="status-card-count" style="color: ${statusColors[status]}">${statusCounts[status]}</div>
+                <div class="status-card-label">${statusLabels[status]}</div>
+            </div>
+        `).join('');
+    
+    container.innerHTML = `
+        ${overview}
+        ${distribution}
+        <div class="status-grid">
+            ${cards}
+        </div>
+    `;
 }
 
 function renderACATList(acats) {
@@ -929,6 +810,356 @@ async function createUserAccount() {
     }
 }
 
+// --- Signup Flow ---
+let currentSignupStep = 1;
+
+function showSignup() {
+    document.getElementById('loginForm').style.display = 'none';
+    document.querySelector('.main-content').style.display = 'none';
+    document.getElementById('signupFlow').style.display = 'block';
+    currentSignupStep = 1;
+    updateSignupProgress();
+}
+
+function showLogin() {
+    document.getElementById('signupFlow').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+    document.querySelector('.main-content').style.display = 'flex';
+}
+
+function nextSignupStep() {
+    // Validate current step
+    const form = document.getElementById('signupForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    currentSignupStep = 2;
+    updateSignupProgress();
+}
+
+function prevSignupStep() {
+    currentSignupStep = 1;
+    updateSignupProgress();
+}
+
+function updateSignupProgress() {
+    // Update progress dots
+    document.querySelectorAll('.progress-dot').forEach((dot, index) => {
+        if (index + 1 === currentSignupStep) {
+            dot.classList.add('active');
+        } else {
+            dot.classList.remove('active');
+        }
+    });
+    
+    // Update step visibility
+    document.querySelectorAll('.signup-step').forEach((step, index) => {
+        if (index + 1 === currentSignupStep) {
+            step.classList.add('active');
+        } else {
+            step.classList.remove('active');
+        }
+    });
+}
+
+async function completeSignup() {
+    const selectedRole = document.querySelector('input[name="userRole"]:checked');
+    if (!selectedRole) {
+        alert('Please select a permission level');
+        return;
+    }
+    
+    const userData = {
+        username: document.getElementById('signupUsername').value,
+        first_name: document.getElementById('signupFirstName').value,
+        last_name: document.getElementById('signupLastName').value,
+        email: document.getElementById('signupEmail').value,
+        phone_number: document.getElementById('signupPhone').value || null,
+        role: selectedRole.value
+    };
+    
+    try {
+        const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Registration failed');
+        }
+        
+        alert('Account created successfully! Please log in with your username.');
+        showLogin();
+        
+        // Reset form
+        document.getElementById('signupForm').reset();
+        document.querySelectorAll('input[name="userRole"]').forEach(r => r.checked = false);
+        currentSignupStep = 1;
+    } catch (error) {
+        alert('Signup failed: ' + error.message);
+    }
+}
+
+// Add click handlers for role selection
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.role-option')) {
+        const option = e.target.closest('.role-option');
+        document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
+        option.classList.add('selected');
+        option.querySelector('input[type="radio"]').checked = true;
+    }
+});
+
+// --- ACAT Creation Wizard ---
+let currentACATStep = 1;
+const totalACATSteps = 3;
+
+function startACATCreation() {
+    if (!currentUser) {
+        alert('Please log in first');
+        return;
+    }
+    
+    if (currentUser.role === 'read_only') {
+        alert('You need full access permissions to create ACATs');
+        return;
+    }
+    
+    // Hide main content, show wizard
+    document.querySelector('.main-content').style.display = 'none';
+    document.getElementById('acatCreationFlow').style.display = 'block';
+    
+    // Set audit username
+    document.getElementById('creatorUsername').textContent = currentUser.username;
+    
+    // Reset wizard to step 1
+    currentACATStep = 1;
+    updateACATWizardProgress();
+    
+    // Load contra firms
+    loadCreateContraFirms();
+    
+    // Initialize with one security
+    addCreateSecurity();
+}
+
+function cancelACATCreation() {
+    document.getElementById('acatCreationFlow').style.display = 'none';
+    document.querySelector('.main-content').style.display = 'flex';
+    
+    // Reset form
+    document.querySelectorAll('#acatCreationFlow input, #acatCreationFlow select, #acatCreationFlow textarea').forEach(el => el.value = '');
+    document.getElementById('createSecuritiesContainer').innerHTML = '';
+    currentACATStep = 1;
+}
+
+function nextACATStep() {
+    // Validate current step
+    let isValid = true;
+    const currentStepEl = document.getElementById(`acatStep${currentACATStep}`);
+    const requiredFields = currentStepEl.querySelectorAll('[required]');
+    
+    requiredFields.forEach(field => {
+        if (!field.value.trim()) {
+            isValid = false;
+            field.style.borderColor = '#ef4444';
+        } else {
+            field.style.borderColor = '#cbd5e1';
+        }
+    });
+    
+    if (!isValid) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    if (currentACATStep < totalACATSteps) {
+        currentACATStep++;
+        updateACATWizardProgress();
+    }
+}
+
+function prevACATStep() {
+    if (currentACATStep > 1) {
+        currentACATStep--;
+        updateACATWizardProgress();
+    }
+}
+
+function updateACATWizardProgress() {
+    // Update progress steps
+    document.querySelectorAll('.wizard-progress .progress-step').forEach((step, index) => {
+        if (index + 1 === currentACATStep) {
+            step.classList.add('active');
+        } else {
+            step.classList.remove('active');
+        }
+    });
+    
+    // Update step visibility
+    for (let i = 1; i <= totalACATSteps; i++) {
+        const stepEl = document.getElementById(`acatStep${i}`);
+        if (i === currentACATStep) {
+            stepEl.classList.add('active');
+            stepEl.style.display = 'block';
+        } else {
+            stepEl.classList.remove('active');
+            stepEl.style.display = 'none';
+        }
+    }
+    
+    // Update button visibility
+    document.getElementById('createPrevBtn').style.display = currentACATStep > 1 ? 'block' : 'none';
+    document.getElementById('createNextBtn').style.display = currentACATStep < totalACATSteps ? 'block' : 'none';
+    document.getElementById('createSubmitBtn').style.display = currentACATStep === totalACATSteps ? 'block' : 'none';
+}
+
+async function loadCreateContraFirms() {
+    try {
+        const response = await fetch('/api/contra-firms');
+        const firms = await response.json();
+        const select = document.getElementById('createContraFirm');
+        select.innerHTML = '<option value="">Select contra firm...</option>' + 
+            firms.map(f => `<option value="${f.id}">${f.name} (${f.id})</option>`).join('');
+    } catch (error) {
+        console.error('Failed to load contra firms:', error);
+    }
+}
+
+function addCreateSecurity() {
+    const container = document.getElementById('createSecuritiesContainer');
+    const index = container.children.length;
+    
+    const securityDiv = document.createElement('div');
+    securityDiv.className = 'security-item';
+    securityDiv.style.marginBottom = '16px';
+    securityDiv.innerHTML = `
+        <div class="field-row">
+            <div class="field-item">
+                <label class="field-label">CUSIP *</label>
+                <input type="text" class="field-value security-cusip" required>
+            </div>
+            <div class="field-item">
+                <label class="field-label">Symbol *</label>
+                <input type="text" class="field-value security-symbol" required>
+            </div>
+        </div>
+        <div class="field-row">
+            <div class="field-item">
+                <label class="field-label">Description *</label>
+                <input type="text" class="field-value security-description" required>
+            </div>
+            <div class="field-item">
+                <label class="field-label">Quantity *</label>
+                <input type="number" class="field-value security-quantity" required min="1">
+            </div>
+        </div>
+        <div class="field-item">
+            <label class="field-label">Asset Type *</label>
+            <select class="field-value security-assettype" required>
+                <option value="">Select type...</option>
+                <option value="equity">Equity</option>
+                <option value="mutual_fund">Mutual Fund</option>
+                <option value="bond">Bond</option>
+            </select>
+        </div>
+        ${index > 0 ? '<button type="button" class="btn-secondary" onclick="this.parentElement.remove()" style="margin-top: 12px;">Remove</button>' : ''}
+    `;
+    container.appendChild(securityDiv);
+}
+
+async function submitNewACAT() {
+    if (!currentUser) {
+        alert('Please log in first');
+        return;
+    }
+    
+    // Gather customer data
+    const customer = {
+        first_name: document.getElementById('createFirstName').value,
+        last_name: document.getElementById('createLastName').value,
+        ssn: document.getElementById('createSSN').value,
+        tax_id: document.getElementById('createTaxID').value || null
+    };
+    
+    // Gather account/firm data
+    const acatData = {
+        delivering_account: document.getElementById('createDeliveringAccount').value,
+        receiving_account: document.getElementById('createReceivingAccount').value,
+        contra_firm: document.getElementById('createContraFirm').value,
+        transfer_type: document.getElementById('createTransferType').value,
+        customer: customer,
+        securities: [],
+        special_instructions: document.getElementById('createInstructions').value || null
+    };
+    
+    // Gather securities
+    const securityItems = document.querySelectorAll('#createSecuritiesContainer .security-item');
+    securityItems.forEach(item => {
+        const cusip = item.querySelector('.security-cusip').value;
+        const symbol = item.querySelector('.security-symbol').value;
+        const description = item.querySelector('.security-description').value;
+        const quantity = item.querySelector('.security-quantity').value;
+        const assetType = item.querySelector('.security-assettype').value;
+        
+        if (cusip && symbol && description && quantity && assetType) {
+            acatData.securities.push({
+                cusip: cusip,
+                symbol: symbol,
+                description: description,
+                quantity: parseInt(quantity),
+                asset_type: assetType
+            });
+        }
+    });
+    
+    // Validate
+    if (!acatData.customer.first_name || !acatData.customer.last_name || !acatData.customer.ssn) {
+        alert('Please fill in all required customer information');
+        return;
+    }
+    
+    if (!acatData.delivering_account || !acatData.receiving_account || !acatData.contra_firm) {
+        alert('Please fill in all required account information');
+        return;
+    }
+    
+    if (acatData.securities.length === 0) {
+        alert('Please add at least one security');
+        return;
+    }
+    
+    try {
+        // Submit the ACAT
+        const response = await fetch('/api/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                acat_data: acatData,
+                accepted_suggestions: [],
+                custom_modifications: {}
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to submit ACAT');
+        }
+        
+        const result = await response.json();
+        alert(`ACAT created successfully!\nSubmission ID: ${result.submission_id}`);
+        
+        // Return to dashboard
+        cancelACATCreation();
+        refreshACATList();
+    } catch (error) {
+        alert('Failed to create ACAT: ' + error.message);
+    }
+}
+
 // Setup event listeners
 document.addEventListener('DOMContentLoaded', function() {
     // Existing event listeners...
@@ -946,3 +1177,4 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
