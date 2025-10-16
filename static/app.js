@@ -42,207 +42,11 @@ async function login() {
         sessionId = data.session_id;
         currentUser = data.user;
         
-        // Open new window with authenticated interface
-        const newWindow = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-        
-        if (newWindow) {
-            // Write the authenticated interface HTML to the new window
-            newWindow.document.write(`
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>ACAT Correction Service - ${currentUser.first_name} ${currentUser.last_name}</title>
-                    <link rel="stylesheet" href="/styles.css">
-                </head>
-                <body>
-                    <div class="container">
-                        <header>
-                            <h1>ACAT Correction Service</h1>
-                            <p>AI-powered validation and correction for DTCC ACAT transfers</p>
-                            <div id="authSection">
-                                <div id="userInfo" style="display: block;">
-                                    <span id="currentUser">${currentUser.first_name} ${currentUser.last_name} (${currentUser.username}) - ${currentUser.role}</span>
-                                    <button onclick="logout()">Logout</button>
-                                </div>
-                            </div>
-                        </header>
-
-                        <div class="main-content">
-                            <!-- ACAT Creation Wizard -->
-                            <div id="acatCreationWizard">
-                                <div class="wizard-container">
-                                    <div class="wizard-header">
-                                        <h2>Create New ACAT Request</h2>
-                                        <div class="wizard-progress">
-                                            <div class="progress-step active" data-step="1">Account Info</div>
-                                            <div class="progress-step" data-step="2">Customer Info</div>
-                                            <div class="progress-step" data-step="3">Securities</div>
-                                            <div class="progress-step" data-step="4">Review</div>
-                                        </div>
-                                    </div>
-
-                                    <form id="acatWizardForm">
-                                        <!-- Step 1: Account Information -->
-                                        <div class="wizard-step" id="step1">
-                                            <h3>Account Information</h3>
-                                            <div class="form-grid">
-                                                <div class="form-group">
-                                                    <label for="wizDeliveringAccount">Delivering Account *</label>
-                                                    <input type="text" id="wizDeliveringAccount" name="delivering_account" required>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="wizReceivingAccount">Receiving Account *</label>
-                                                    <input type="text" id="wizReceivingAccount" name="receiving_account" required>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="wizContraFirm">Contra Firm *</label>
-                                                    <select id="wizContraFirm" name="contra_firm" required>
-                                                        <option value="">Select contra firm...</option>
-                                                    </select>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="wizTransferType">Transfer Type *</label>
-                                                    <select id="wizTransferType" name="transfer_type" required>
-                                                        <option value="">Select transfer type...</option>
-                                                        <option value="full">Full Transfer</option>
-                                                        <option value="partial">Partial Transfer</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Step 2: Customer Information -->
-                                        <div class="wizard-step" id="step2" style="display: none;">
-                                            <h3>Customer Information</h3>
-                                            <div class="form-grid">
-                                                <div class="form-group">
-                                                    <label for="wizFirstName">First Name *</label>
-                                                    <input type="text" id="wizFirstName" name="first_name" required>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="wizLastName">Last Name *</label>
-                                                    <input type="text" id="wizLastName" name="last_name" required>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="wizSSN">SSN *</label>
-                                                    <input type="text" id="wizSSN" name="ssn" required placeholder="123-45-6789">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="wizTaxId">Tax ID</label>
-                                                    <input type="text" id="wizTaxId" name="tax_id" placeholder="Optional">
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Step 3: Securities -->
-                                        <div class="wizard-step" id="step3" style="display: none;">
-                                            <h3>Securities</h3>
-                                            <div id="wizSecuritiesContainer">
-                                                <div class="security-item">
-                                                    <div class="form-grid">
-                                                        <div class="form-group">
-                                                            <label>CUSIP *</label>
-                                                            <input type="text" name="cusip" required>
-                                                        </div>
-                                                        <div class="form-group">
-                                                            <label>Symbol *</label>
-                                                            <input type="text" name="symbol" required>
-                                                        </div>
-                                                        <div class="form-group">
-                                                            <label>Description *</label>
-                                                            <input type="text" name="description" required>
-                                                        </div>
-                                                        <div class="form-group">
-                                                            <label>Quantity *</label>
-                                                            <input type="number" name="quantity" required min="1">
-                                                        </div>
-                                                        <div class="form-group">
-                                                            <label>Asset Type *</label>
-                                                            <select name="asset_type" required>
-                                                                <option value="">Select type...</option>
-                                                                <option value="equity">Equity</option>
-                                                                <option value="mutual_fund">Mutual Fund</option>
-                                                                <option value="bond">Bond</option>
-                                                            </select>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <button type="button" onclick="addWizardSecurity()" class="btn-secondary">Add Another Security</button>
-                                        </div>
-
-                                        <!-- Step 4: Review -->
-                                        <div class="wizard-step" id="step4" style="display: none;">
-                                            <h3>Review & Submit</h3>
-                                            <div id="wizReviewContent"></div>
-                                        </div>
-
-                                        <div class="wizard-actions">
-                                            <button type="button" onclick="prevStep()" id="wizPrevBtn" style="display: none;" class="btn-secondary">Previous</button>
-                                            <button type="button" onclick="nextStep()" id="wizNextBtn" class="btn-primary">Next</button>
-                                            <button type="submit" id="wizSubmitBtn" style="display: none;" class="btn-success">Create ACAT Request</button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-
-                            <!-- Ongoing ACATs -->
-                            <div class="results-section">
-                                <h2>Ongoing ACATs</h2>
-                                <div id="acatList">
-                                    <p>Loading ACATs...</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Learning Analytics (for full users) -->
-                        <div id="learningAnalytics" style="display: none;">
-                            <div class="results-section">
-                                <h2>Learning Analytics</h2>
-                                <div id="learningInsights">
-                                    <p>Loading analytics...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <script>
-                        // Global variables
-                        let currentUser = ${JSON.stringify(currentUser)};
-                        let sessionId = '${sessionId}';
-                        let currentWizardStep = 1;
-                        const totalWizardSteps = 4;
-
-                        // Initialize the authenticated interface
-                        document.addEventListener('DOMContentLoaded', function() {
-                            loadContraFirms();
-                            refreshACATList();
-                            if (currentUser.role === 'full') {
-                                document.getElementById('learningAnalytics').style.display = 'block';
-                                loadLearningInsights();
-                            }
-                        });
-
-                        // Include all the necessary functions from the main app.js
-                        // (This would include all the functions like loadContraFirms, refreshACATList, etc.)
-                    </script>
-                    <script src="/app.js"></script>
-                </body>
-                </html>
-            `);
-            newWindow.document.close();
-            
-            // Close the current window after a short delay
-            setTimeout(() => {
-                window.close();
-            }, 1000);
-        } else {
-            // Fallback if popup was blocked
-            alert('Please allow popups for this site to use the login feature');
-            updateAuthUI();
-            refreshACATList();
+        // Don't open new window, just update the UI
+        updateAuthUI();
+        refreshACATList();
+        if (currentUser.role === 'full') {
+            loadLearningInsights();
         }
     } catch (error) {
         alert('Login failed: ' + error.message);
@@ -1110,153 +914,215 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// --- ACAT Entry Flow ---
-let currentACATEntry = null;
+// --- ACAT Creation Wizard ---
+let currentACATStep = 1;
+const totalACATSteps = 3;
 
-function openNewACATEntry() {
+function startACATCreation() {
     if (!currentUser) {
         alert('Please log in first');
         return;
     }
     
-    // Hide main content
+    if (currentUser.role === 'read_only') {
+        alert('You need full access permissions to create ACATs');
+        return;
+    }
+    
+    // Hide main content, show wizard
     document.querySelector('.main-content').style.display = 'none';
-    document.getElementById('acatEntryFlow').style.display = 'block';
+    document.getElementById('acatCreationFlow').style.display = 'block';
     
     // Set audit username
-    document.getElementById('auditUsername').textContent = currentUser.username;
+    document.getElementById('creatorUsername').textContent = currentUser.username;
     
-    // Generate a new ACAT with placeholder data
-    currentACATEntry = {
-        delivering_account: '',
-        receiving_account: '',
-        contra_firm: '',
-        transfer_type: 'full',
-        customer: {
-            first_name: '',
-            last_name: '',
-            ssn: '',
-            tax_id: ''
-        },
-        securities: [{
-            cusip: '',
-            symbol: '',
-            description: '',
-            quantity: 0,
-            asset_type: 'equity'
-        }],
-        special_instructions: ''
-    };
+    // Reset wizard to step 1
+    currentACATStep = 1;
+    updateACATWizardProgress();
     
-    // Load contra firms into dropdown
-    loadEntryContraFirms();
+    // Load contra firms
+    loadCreateContraFirms();
     
-    // Populate form
-    populateACATEntry();
-    
-    // Hide notification
-    document.getElementById('newACATNotification').style.display = 'none';
+    // Initialize with one security
+    addCreateSecurity();
 }
 
-function closeACATEntry() {
-    document.getElementById('acatEntryFlow').style.display = 'none';
+function cancelACATCreation() {
+    document.getElementById('acatCreationFlow').style.display = 'none';
     document.querySelector('.main-content').style.display = 'flex';
-    currentACATEntry = null;
+    
+    // Reset form
+    document.querySelectorAll('#acatCreationFlow input, #acatCreationFlow select, #acatCreationFlow textarea').forEach(el => el.value = '');
+    document.getElementById('createSecuritiesContainer').innerHTML = '';
+    currentACATStep = 1;
 }
 
-async function loadEntryContraFirms() {
+function nextACATStep() {
+    // Validate current step
+    let isValid = true;
+    const currentStepEl = document.getElementById(`acatStep${currentACATStep}`);
+    const requiredFields = currentStepEl.querySelectorAll('[required]');
+    
+    requiredFields.forEach(field => {
+        if (!field.value.trim()) {
+            isValid = false;
+            field.style.borderColor = '#ef4444';
+        } else {
+            field.style.borderColor = '#cbd5e1';
+        }
+    });
+    
+    if (!isValid) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    if (currentACATStep < totalACATSteps) {
+        currentACATStep++;
+        updateACATWizardProgress();
+    }
+}
+
+function prevACATStep() {
+    if (currentACATStep > 1) {
+        currentACATStep--;
+        updateACATWizardProgress();
+    }
+}
+
+function updateACATWizardProgress() {
+    // Update progress steps
+    document.querySelectorAll('.wizard-progress .progress-step').forEach((step, index) => {
+        if (index + 1 === currentACATStep) {
+            step.classList.add('active');
+        } else {
+            step.classList.remove('active');
+        }
+    });
+    
+    // Update step visibility
+    for (let i = 1; i <= totalACATSteps; i++) {
+        const stepEl = document.getElementById(`acatStep${i}`);
+        if (i === currentACATStep) {
+            stepEl.classList.add('active');
+            stepEl.style.display = 'block';
+        } else {
+            stepEl.classList.remove('active');
+            stepEl.style.display = 'none';
+        }
+    }
+    
+    // Update button visibility
+    document.getElementById('createPrevBtn').style.display = currentACATStep > 1 ? 'block' : 'none';
+    document.getElementById('createNextBtn').style.display = currentACATStep < totalACATSteps ? 'block' : 'none';
+    document.getElementById('createSubmitBtn').style.display = currentACATStep === totalACATSteps ? 'block' : 'none';
+}
+
+async function loadCreateContraFirms() {
     try {
         const response = await fetch('/api/contra-firms');
         const firms = await response.json();
-        const select = document.getElementById('entryContraFirm');
-        select.innerHTML = '<option value="">Select firm...</option>' + 
+        const select = document.getElementById('createContraFirm');
+        select.innerHTML = '<option value="">Select contra firm...</option>' + 
             firms.map(f => `<option value="${f.id}">${f.name} (${f.id})</option>`).join('');
     } catch (error) {
         console.error('Failed to load contra firms:', error);
     }
 }
 
-function populateACATEntry() {
-    if (!currentACATEntry) return;
+function addCreateSecurity() {
+    const container = document.getElementById('createSecuritiesContainer');
+    const index = container.children.length;
     
-    document.getElementById('entryDeliveringAccount').value = currentACATEntry.delivering_account || '';
-    document.getElementById('entryReceivingAccount').value = currentACATEntry.receiving_account || '';
-    document.getElementById('entryContraFirm').value = currentACATEntry.contra_firm || '';
-    document.getElementById('entryTransferType').value = currentACATEntry.transfer_type || 'full';
-    document.getElementById('entryFirstName').value = currentACATEntry.customer?.first_name || '';
-    document.getElementById('entryLastName').value = currentACATEntry.customer?.last_name || '';
-    document.getElementById('entrySSN').value = currentACATEntry.customer?.ssn || '';
-    document.getElementById('entryTaxID').value = currentACATEntry.customer?.tax_id || '';
-    document.getElementById('entryInstructions').value = currentACATEntry.special_instructions || '';
-    
-    // Render securities
-    const securitiesContainer = document.getElementById('entrySecurities');
-    const securities = currentACATEntry.securities || [];
-    securitiesContainer.innerHTML = securities.map((sec, idx) => `
-        <div class="field-row" style="margin-bottom: 12px; padding: 16px; background: #f8fafc; border-radius: 8px;">
+    const securityDiv = document.createElement('div');
+    securityDiv.className = 'security-item';
+    securityDiv.style.marginBottom = '16px';
+    securityDiv.innerHTML = `
+        <div class="field-row">
             <div class="field-item">
-                <label class="field-label">CUSIP</label>
-                <input type="text" class="field-value" id="entrySec${idx}CUSIP" value="${sec.cusip || ''}">
+                <label class="field-label">CUSIP *</label>
+                <input type="text" class="field-value security-cusip" required>
             </div>
             <div class="field-item">
-                <label class="field-label">Symbol</label>
-                <input type="text" class="field-value" id="entrySec${idx}Symbol" value="${sec.symbol || ''}">
-            </div>
-            <div class="field-item">
-                <label class="field-label">Quantity</label>
-                <input type="number" class="field-value" id="entrySec${idx}Qty" value="${sec.quantity || 0}">
-            </div>
-            <div class="field-item">
-                <label class="field-label">Asset Type</label>
-                <select class="field-value" id="entrySec${idx}Type">
-                    <option value="equity" ${sec.asset_type === 'equity' ? 'selected' : ''}>Equity</option>
-                    <option value="mutual_fund" ${sec.asset_type === 'mutual_fund' ? 'selected' : ''}>Mutual Fund</option>
-                    <option value="bond" ${sec.asset_type === 'bond' ? 'selected' : ''}>Bond</option>
-                </select>
+                <label class="field-label">Symbol *</label>
+                <input type="text" class="field-value security-symbol" required>
             </div>
         </div>
-    `).join('');
+        <div class="field-row">
+            <div class="field-item">
+                <label class="field-label">Description *</label>
+                <input type="text" class="field-value security-description" required>
+            </div>
+            <div class="field-item">
+                <label class="field-label">Quantity *</label>
+                <input type="number" class="field-value security-quantity" required min="1">
+            </div>
+        </div>
+        <div class="field-item">
+            <label class="field-label">Asset Type *</label>
+            <select class="field-value security-assettype" required>
+                <option value="">Select type...</option>
+                <option value="equity">Equity</option>
+                <option value="mutual_fund">Mutual Fund</option>
+                <option value="bond">Bond</option>
+            </select>
+        </div>
+        ${index > 0 ? '<button type="button" class="btn-secondary" onclick="this.parentElement.remove()" style="margin-top: 12px;">Remove</button>' : ''}
+    `;
+    container.appendChild(securityDiv);
 }
 
-async function saveACATEntry() {
+async function submitNewACAT() {
     if (!currentUser) {
         alert('Please log in first');
         return;
     }
     
-    // Gather data from form
-    const acatData = {
-        delivering_account: document.getElementById('entryDeliveringAccount').value,
-        receiving_account: document.getElementById('entryReceivingAccount').value,
-        contra_firm: document.getElementById('entryContraFirm').value,
-        transfer_type: document.getElementById('entryTransferType').value,
-        customer: {
-            first_name: document.getElementById('entryFirstName').value,
-            last_name: document.getElementById('entryLastName').value,
-            ssn: document.getElementById('entrySSN').value,
-            tax_id: document.getElementById('entryTaxID').value || null
-        },
-        securities: [],
-        special_instructions: document.getElementById('entryInstructions').value
+    // Gather customer data
+    const customer = {
+        first_name: document.getElementById('createFirstName').value,
+        last_name: document.getElementById('createLastName').value,
+        ssn: document.getElementById('createSSN').value,
+        tax_id: document.getElementById('createTaxID').value || null
     };
     
-    // Collect securities data
-    const securityDivs = document.querySelectorAll('#entrySecurities > div');
-    securityDivs.forEach((div, idx) => {
-        const cusip = document.getElementById(`entrySec${idx}CUSIP`).value;
-        const symbol = document.getElementById(`entrySec${idx}Symbol`).value;
-        if (cusip && symbol) {
+    // Gather account/firm data
+    const acatData = {
+        delivering_account: document.getElementById('createDeliveringAccount').value,
+        receiving_account: document.getElementById('createReceivingAccount').value,
+        contra_firm: document.getElementById('createContraFirm').value,
+        transfer_type: document.getElementById('createTransferType').value,
+        customer: customer,
+        securities: [],
+        special_instructions: document.getElementById('createInstructions').value || null
+    };
+    
+    // Gather securities
+    const securityItems = document.querySelectorAll('#createSecuritiesContainer .security-item');
+    securityItems.forEach(item => {
+        const cusip = item.querySelector('.security-cusip').value;
+        const symbol = item.querySelector('.security-symbol').value;
+        const description = item.querySelector('.security-description').value;
+        const quantity = item.querySelector('.security-quantity').value;
+        const assetType = item.querySelector('.security-assettype').value;
+        
+        if (cusip && symbol && description && quantity && assetType) {
             acatData.securities.push({
                 cusip: cusip,
                 symbol: symbol,
-                description: `${symbol} Security`,
-                quantity: parseInt(document.getElementById(`entrySec${idx}Qty`).value) || 0,
-                asset_type: document.getElementById(`entrySec${idx}Type`).value
+                description: description,
+                quantity: parseInt(quantity),
+                asset_type: assetType
             });
         }
     });
     
     // Validate
+    if (!acatData.customer.first_name || !acatData.customer.last_name || !acatData.customer.ssn) {
+        alert('Please fill in all required customer information');
+        return;
+    }
+    
     if (!acatData.delivering_account || !acatData.receiving_account || !acatData.contra_firm) {
         alert('Please fill in all required account information');
         return;
@@ -1268,7 +1134,7 @@ async function saveACATEntry() {
     }
     
     try {
-        // Submit as a new ACAT
+        // Submit the ACAT
         const response = await fetch('/api/submit', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1284,20 +1150,13 @@ async function saveACATEntry() {
         }
         
         const result = await response.json();
-        alert(`ACAT submitted successfully!\nSubmission ID: ${result.submission_id}`);
+        alert(`ACAT created successfully!\nSubmission ID: ${result.submission_id}`);
         
-        closeACATEntry();
+        // Return to dashboard
+        cancelACATCreation();
         refreshACATList();
     } catch (error) {
-        alert('Failed to save ACAT: ' + error.message);
-    }
-}
-
-// Show new ACAT notification (simulate receiving a new ACAT)
-function showNewACATNotification() {
-    const notification = document.getElementById('newACATNotification');
-    if (notification && currentUser && currentUser.role === 'full') {
-        notification.style.display = 'flex';
+        alert('Failed to create ACAT: ' + error.message);
     }
 }
 
@@ -1317,7 +1176,5 @@ document.addEventListener('DOMContentLoaded', function() {
             createUserAccount();
         });
     }
-    
-    // Simulate showing new ACAT notification after 5 seconds (for demo)
-    setTimeout(showNewACATNotification, 5000);
 });
+
