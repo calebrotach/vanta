@@ -4,6 +4,7 @@ let acceptedSuggestions = new Set();
 let customModifications = {};
 let currentUser = null;
 let sessionId = null;
+let pendingStatusChange = null; // Store pending status change data
 
 // DOM elements
 const form = document.getElementById('acatForm');
@@ -719,7 +720,15 @@ function renderStatusActions(record) {
 function showStatusUpdateModal(recordId, newStatus) {
     const reason = prompt(`Enter reason for changing status to "${newStatus}":`);
     if (reason && reason.trim()) {
-        updateRecordStatus(recordId, newStatus, reason.trim());
+        // Store pending status change data
+        pendingStatusChange = {
+            recordId: recordId,
+            newStatus: newStatus,
+            reason: reason.trim()
+        };
+        
+        // Show password verification modal
+        showPasswordModal();
     }
 }
 
@@ -751,6 +760,73 @@ async function updateRecordStatus(id, status, reason) {
         }
     } catch (e) {
         alert(e.message);
+    }
+}
+
+// Password verification functions
+function showPasswordModal() {
+    document.getElementById('passwordModal').style.display = 'flex';
+    document.getElementById('passwordVerification').value = '';
+    document.getElementById('passwordVerification').focus();
+}
+
+function cancelPasswordVerification() {
+    document.getElementById('passwordModal').style.display = 'none';
+    pendingStatusChange = null;
+}
+
+async function confirmPasswordVerification() {
+    const password = document.getElementById('passwordVerification').value;
+    if (!password) {
+        alert('Please enter your password');
+        return;
+    }
+    
+    try {
+        // Verify password first
+        const verifyResponse = await fetch(`/api/auth/verify-password?session_id=${sessionId}&password=${encodeURIComponent(password)}`, {
+            method: 'POST'
+        });
+        
+        if (!verifyResponse.ok) {
+            throw new Error('Invalid password');
+        }
+        
+        // Update status with password verification
+        const response = await fetch(`/api/tracking/${pendingStatusChange.recordId}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                status: pendingStatusChange.newStatus,
+                reason: pendingStatusChange.reason,
+                updated_by: currentUser.username,
+                password: password,
+                session_id: sessionId
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to update status');
+        }
+        
+        const updatedRecord = await response.json();
+        
+        // Close modal and refresh
+        const newStatus = pendingStatusChange.newStatus;
+        document.getElementById('passwordModal').style.display = 'none';
+        pendingStatusChange = null;
+        refreshACATList();
+        
+        // Refresh learning insights after status change
+        if (currentUser.role === 'full' || currentUser.role === 'owner') {
+            loadLearningInsights();
+        }
+        
+        alert(`Status updated to ${newStatus}`);
+        
+    } catch (error) {
+        alert('Failed to update status: ' + error.message);
     }
 }
 
@@ -1260,17 +1336,30 @@ function renderAuditLog(entries) {
     }
     
     const rows = entries.map(entry => {
-        const date = new Date(entry.updated_at);
+        const date = new Date(entry.performed_at);
+        const actionType = entry.action === 'status_change' ? 'Status Change' : 
+                          entry.action === 'create' ? 'ACAT Created' :
+                          entry.action === 'approve_user' ? 'User Approved' :
+                          entry.action === 'reject_user' ? 'User Rejected' : entry.action;
+        
+        let details = '';
+        if (entry.action === 'status_change') {
+            details = `${entry.details.from_status} → ${entry.details.to_status}`;
+        } else if (entry.action === 'create') {
+            details = `Account: ${entry.details.delivering_account} → ${entry.details.receiving_account}`;
+        } else if (entry.action === 'approve_user' || entry.action === 'reject_user') {
+            details = `User: ${entry.entity_id}`;
+        }
+        
         return `
             <tr>
                 <td>${date.toLocaleString()}</td>
-                <td>${entry.acat_id.substring(0, 8)}...</td>
-                <td>${entry.delivering_account}</td>
-                <td>${entry.receiving_account}</td>
-                <td><span class="status-${entry.from_status}">${entry.from_status}</span></td>
-                <td><span class="status-${entry.to_status}">${entry.to_status}</span></td>
-                <td>${entry.reason}</td>
-                <td><strong>${entry.updated_by}</strong></td>
+                <td><span class="action-badge action-${entry.action}">${actionType}</span></td>
+                <td>${entry.entity_type.toUpperCase()}</td>
+                <td>${entry.entity_id.substring(0, 8)}...</td>
+                <td>${details}</td>
+                <td>${entry.details.reason || entry.details.approved_by || entry.details.rejected_by || 'N/A'}</td>
+                <td><strong>${entry.performed_by}</strong></td>
             </tr>
         `;
     }).join('');
@@ -1280,13 +1369,12 @@ function renderAuditLog(entries) {
             <thead>
                 <tr>
                     <th>Timestamp</th>
-                    <th>ACAT ID</th>
-                    <th>Delivering</th>
-                    <th>Receiving</th>
-                    <th>From Status</th>
-                    <th>To Status</th>
-                    <th>Reason</th>
-                    <th>Updated By</th>
+                    <th>Action</th>
+                    <th>Entity Type</th>
+                    <th>Entity ID</th>
+                    <th>Details</th>
+                    <th>Reason/Info</th>
+                    <th>Performed By</th>
                 </tr>
             </thead>
             <tbody>

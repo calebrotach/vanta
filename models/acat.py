@@ -152,3 +152,5 @@ class StatusUpdateRequest(BaseModel):
     status: ACATStatus = Field(..., description="New status")
     reason: str = Field(..., min_length=1, max_length=500, description="Reason for status change")
     updated_by: str = Field(..., description="User who made the change")
+    password: Optional[str] = Field(None, description="User password for verification")
+    session_id: Optional[str] = Field(None, description="User session ID")

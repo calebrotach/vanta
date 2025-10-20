@@ -339,18 +339,38 @@
             </div>
         </div>
 
-        <!-- Pending Approvals Screen (Owner Only) -->
-        <div id="approvalsScreen" style="display: none;">
-            <div class="results-section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2>Pending User Approvals</h2>
-                    <button class="btn-secondary" onclick="closePendingApprovals()">Back to Dashboard</button>
+                <!-- Pending Approvals Screen (Owner Only) -->
+                <div id="approvalsScreen" style="display: none;">
+                    <div class="results-section">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h2>Pending User Approvals</h2>
+                            <button class="btn-secondary" onclick="closePendingApprovals()">Back to Dashboard</button>
+                        </div>
+                        <div id="pendingApprovalsContent">
+                            <p>Loading pending approvals...</p>
+                        </div>
+                    </div>
                 </div>
-                <div id="pendingApprovalsContent">
-                    <p>Loading pending approvals...</p>
+
+                <!-- Password Verification Modal -->
+                <div id="passwordModal" class="modal-overlay" style="display: none;">
+                    <div class="modal-container">
+                        <div class="modal-header">
+                            <h3>Verify Password</h3>
+                            <p>Please enter your password to confirm this status change</p>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="passwordVerification">Password</label>
+                                <input type="password" id="passwordVerification" placeholder="Enter your password" required />
+                            </div>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn-secondary" onclick="cancelPasswordVerification()">Cancel</button>
+                            <button type="button" class="btn-primary" onclick="confirmPasswordVerification()">Verify & Update</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
 
         <div class="main-content">
             <!-- Onboarding Flow -->

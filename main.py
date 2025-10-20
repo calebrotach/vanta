@@ -379,9 +379,28 @@ async def get_tracking_record(record_id: str):
         raise HTTPException(status_code=404, detail="Tracking record not found")
 
 
+@app.post("/api/auth/verify-password")
+async def verify_password(session_id: str, password: str):
+    """Verify user's password for sensitive operations."""
+    user = auth_service.get_user_from_session(session_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    if not auth_service.verify_password(password, user.password_hash):
+        raise HTTPException(status_code=403, detail="Invalid password")
+    
+    return {"verified": True}
+
+
 @app.patch("/api/tracking/{record_id}/status", response_model=ACATRecord)
 async def update_tracking_status(record_id: str, update_request: StatusUpdateRequest):
     try:
+        # Verify password for status changes
+        if update_request.password:
+            user = auth_service.get_user_from_session(update_request.session_id)
+            if not user or not auth_service.verify_password(update_request.password, user.password_hash):
+                raise HTTPException(status_code=403, detail="Invalid password")
+        
         return tracking_store.update_status(record_id, update_request.status, update_request.reason, update_request.updated_by, learning_service)
     except KeyError:
         raise HTTPException(status_code=404, detail="Tracking record not found")
