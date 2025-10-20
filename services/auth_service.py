@@ -13,6 +13,19 @@ class SimpleAuthService:
     
     def _create_default_users(self):
         """Create default users for testing."""
+        # Owner user
+        owner_user = User(
+            id=str(uuid.uuid4()),
+            username="owner",
+            first_name="System",
+            last_name="Owner",
+            email="owner@vanta.com",
+            phone_number="+1-555-0000",
+            role=UserRole.OWNER,
+            is_approved=True
+        )
+        self._users[owner_user.id] = owner_user
+        
         # Full access user
         full_user = User(
             id=str(uuid.uuid4()),
@@ -21,7 +34,8 @@ class SimpleAuthService:
             last_name="Administrator",
             email="admin@vanta.com",
             phone_number="+1-555-0001",
-            role=UserRole.FULL
+            role=UserRole.FULL,
+            is_approved=True
         )
         self._users[full_user.id] = full_user
         
@@ -33,7 +47,8 @@ class SimpleAuthService:
             last_name="Only",
             email="viewer@vanta.com",
             phone_number="+1-555-0002",
-            role=UserRole.READ_ONLY
+            role=UserRole.READ_ONLY,
+            is_approved=True
         )
         self._users[read_user.id] = read_user
     
@@ -41,6 +56,9 @@ class SimpleAuthService:
         """Simple authentication by username (no password for demo)."""
         for user in self._users.values():
             if user.username == username:
+                # Check if user is approved (owner is always approved)
+                if not user.is_approved and user.role != UserRole.OWNER:
+                    return None
                 # Update last login
                 user.last_login = datetime.utcnow()
                 return user
@@ -53,6 +71,9 @@ class SimpleAuthService:
             if user.username == username:
                 return None
         
+        # Owner accounts are auto-approved, others need approval
+        is_approved = (role == UserRole.OWNER)
+        
         new_user = User(
             id=str(uuid.uuid4()),
             username=username,
@@ -61,6 +82,7 @@ class SimpleAuthService:
             email=email,
             phone_number=phone_number,
             role=role,
+            is_approved=is_approved,
             is_onboarded=False
         )
         self._users[new_user.id] = new_user
@@ -97,3 +119,22 @@ class SimpleAuthService:
     def get_all_users(self) -> list[User]:
         """Get all users (for admin purposes)."""
         return list(self._users.values())
+    
+    def get_pending_users(self) -> list[User]:
+        """Get all users pending approval."""
+        return [user for user in self._users.values() if not user.is_approved and user.role != UserRole.OWNER]
+    
+    def approve_user(self, user_id: str, approver_username: str) -> bool:
+        """Approve a user account (owner only)."""
+        if user_id in self._users:
+            self._users[user_id].is_approved = True
+            self._users[user_id].approved_by = approver_username
+            return True
+        return False
+    
+    def reject_user(self, user_id: str) -> bool:
+        """Reject and delete a user account (owner only)."""
+        if user_id in self._users:
+            del self._users[user_id]
+            return True
+        return False

@@ -91,13 +91,26 @@ function updatePermissions() {
         formSection.style.display = isReadOnly ? 'none' : 'block';
     }
     
-    // Show learning analytics for full users
+    // Show learning analytics for full/owner users
     const learningSection = document.getElementById('learningSection');
     if (learningSection) {
-        learningSection.style.display = currentUser && currentUser.role === 'full' ? 'block' : 'none';
-        if (currentUser && currentUser.role === 'full') {
+        const canView = currentUser && (currentUser.role === 'full' || currentUser.role === 'owner');
+        learningSection.style.display = canView ? 'block' : 'none';
+        if (canView) {
             loadLearningInsights();
         }
+    }
+    
+    // Show audit log button for admin/owner
+    const auditLogBtn = document.getElementById('auditLogBtn');
+    if (auditLogBtn) {
+        auditLogBtn.style.display = (currentUser && (currentUser.role === 'full' || currentUser.role === 'owner')) ? 'inline-block' : 'none';
+    }
+    
+    // Show approvals button for owner only
+    const approvalsBtn = document.getElementById('approvalsBtn');
+    if (approvalsBtn) {
+        approvalsBtn.style.display = (currentUser && currentUser.role === 'owner') ? 'inline-block' : 'none';
     }
 }
 
@@ -892,7 +905,12 @@ async function completeSignup() {
             throw new Error(error.detail || 'Registration failed');
         }
         
-        alert('Account created successfully! Please log in with your username.');
+        const isOwner = selectedRole.value === 'owner';
+        if (isOwner) {
+            alert('Owner account created successfully! You have immediate access. Please log in with your username.');
+        } else {
+            alert('Account created successfully! Your account is pending approval by an owner. You will be able to log in once approved.');
+        }
         showLogin();
         
         // Reset form
@@ -1157,6 +1175,193 @@ async function submitNewACAT() {
         refreshACATList();
     } catch (error) {
         alert('Failed to create ACAT: ' + error.message);
+    }
+}
+
+// --- About Screen ---
+function showAbout() {
+    document.querySelector('.main-content').style.display = 'none';
+    document.getElementById('aboutScreen').style.display = 'block';
+}
+
+function closeAbout() {
+    document.getElementById('aboutScreen').style.display = 'none';
+    document.querySelector('.main-content').style.display = 'flex';
+}
+
+// --- Audit Log Screen ---
+async function showAuditLog() {
+    if (!currentUser || currentUser.role === 'read_only') {
+        alert('Access denied');
+        return;
+    }
+    
+    document.querySelector('.main-content').style.display = 'none';
+    document.getElementById('auditLogScreen').style.display = 'block';
+    
+    // Load audit log
+    try {
+        const response = await fetch(`/api/audit/changes?session_id=${sessionId}`);
+        if (!response.ok) throw new Error('Failed to load audit log');
+        
+        const auditEntries = await response.json();
+        renderAuditLog(auditEntries);
+    } catch (error) {
+        document.getElementById('auditLogContent').innerHTML = '<p>Failed to load audit log</p>';
+    }
+}
+
+function closeAuditLog() {
+    document.getElementById('auditLogScreen').style.display = 'none';
+    document.querySelector('.main-content').style.display = 'flex';
+}
+
+function renderAuditLog(entries) {
+    const container = document.getElementById('auditLogContent');
+    
+    if (!entries || entries.length === 0) {
+        container.innerHTML = '<p>No audit entries found</p>';
+        return;
+    }
+    
+    const rows = entries.map(entry => {
+        const date = new Date(entry.updated_at);
+        return `
+            <tr>
+                <td>${date.toLocaleString()}</td>
+                <td>${entry.acat_id.substring(0, 8)}...</td>
+                <td>${entry.delivering_account}</td>
+                <td>${entry.receiving_account}</td>
+                <td><span class="status-${entry.from_status}">${entry.from_status}</span></td>
+                <td><span class="status-${entry.to_status}">${entry.to_status}</span></td>
+                <td>${entry.reason}</td>
+                <td><strong>${entry.updated_by}</strong></td>
+            </tr>
+        `;
+    }).join('');
+    
+    container.innerHTML = `
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>ACAT ID</th>
+                    <th>Delivering</th>
+                    <th>Receiving</th>
+                    <th>From Status</th>
+                    <th>To Status</th>
+                    <th>Reason</th>
+                    <th>Updated By</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+}
+
+// --- Pending Approvals Screen (Owner Only) ---
+async function showPendingApprovals() {
+    if (!currentUser || currentUser.role !== 'owner') {
+        alert('Owner access required');
+        return;
+    }
+    
+    document.querySelector('.main-content').style.display = 'none';
+    document.getElementById('approvalsScreen').style.display = 'block';
+    
+    // Load pending approvals
+    try {
+        const response = await fetch(`/api/admin/pending-users?session_id=${sessionId}`);
+        if (!response.ok) throw new Error('Failed to load pending approvals');
+        
+        const pendingUsers = await response.json();
+        renderPendingApprovals(pendingUsers);
+    } catch (error) {
+        document.getElementById('pendingApprovalsContent').innerHTML = '<p>Failed to load pending approvals</p>';
+    }
+}
+
+function closePendingApprovals() {
+    document.getElementById('approvalsScreen').style.display = 'none';
+    document.querySelector('.main-content').style.display = 'flex';
+}
+
+function renderPendingApprovals(users) {
+    const container = document.getElementById('pendingApprovalsContent');
+    
+    if (!users || users.length === 0) {
+        container.innerHTML = '<p>No pending user approvals</p>';
+        return;
+    }
+    
+    const rows = users.map(user => `
+        <tr>
+            <td>${user.username}</td>
+            <td>${user.first_name} ${user.last_name}</td>
+            <td>${user.email}</td>
+            <td>${user.phone_number || 'N/A'}</td>
+            <td><span class="status-${user.role}">${user.role}</span></td>
+            <td>${new Date(user.created_at).toLocaleDateString()}</td>
+            <td>
+                <button class="btn-success" onclick="approveUser('${user.id}')" style="margin-right: 8px;">Approve</button>
+                <button class="btn-secondary" onclick="rejectUser('${user.id}')" style="background: #ef4444;">Reject</button>
+            </td>
+        </tr>
+    `).join('');
+    
+    container.innerHTML = `
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Requested Role</th>
+                    <th>Requested On</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+}
+
+async function approveUser(userId) {
+    if (!confirm('Are you sure you want to approve this user?')) return;
+    
+    try {
+        const response = await fetch(`/api/admin/approve-user/${userId}?session_id=${sessionId}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Failed to approve user');
+        
+        alert('User approved successfully');
+        showPendingApprovals(); // Refresh list
+    } catch (error) {
+        alert('Failed to approve user: ' + error.message);
+    }
+}
+
+async function rejectUser(userId) {
+    if (!confirm('Are you sure you want to reject this user? This will delete their account.')) return;
+    
+    try {
+        const response = await fetch(`/api/admin/reject-user/${userId}?session_id=${sessionId}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Failed to reject user');
+        
+        alert('User rejected and account deleted');
+        showPendingApprovals(); // Refresh list
+    } catch (error) {
+        alert('Failed to reject user: ' + error.message);
     }
 }
 
