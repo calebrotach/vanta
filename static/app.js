@@ -73,18 +73,24 @@ function logout() {
 }
 
 function updateAuthUI() {
-    const loginForm = document.getElementById('loginForm');
+    const loginScreen = document.getElementById('loginScreen');
     const userInfo = document.getElementById('userInfo');
     const currentUserSpan = document.getElementById('currentUser');
     
     if (currentUser) {
-        loginForm.style.display = 'none';
-        userInfo.style.display = 'block';
-        currentUserSpan.textContent = `${currentUser.first_name} ${currentUser.last_name} (${currentUser.username}) - ${currentUser.role}`;
+        loginScreen.style.display = 'none';
+        if (userInfo) {
+            userInfo.style.display = 'block';
+            if (currentUserSpan) {
+                currentUserSpan.textContent = `${currentUser.first_name} ${currentUser.last_name} (${currentUser.username}) - ${currentUser.role}`;
+            }
+        }
         updatePermissions();
     } else {
-        loginForm.style.display = 'block';
-        userInfo.style.display = 'none';
+        loginScreen.style.display = 'flex';
+        if (userInfo) {
+            userInfo.style.display = 'none';
+        }
     }
 }
 
