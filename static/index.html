@@ -4,21 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ACAT Correction Service</title>
-    <link rel="stylesheet" href="/static/styles.css?v=7">
+    <link rel="stylesheet" href="/static/styles.css?v=9">
 </head>
 <body>
-    <div class="container">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>ACAT Correction Service</h1>
+                <p>AI-powered validation and correction for DTCC ACAT transfers</p>
+            </div>
+            <div class="login-body">
+                <form id="loginForm" onsubmit="login(event); return false;">
+                    <div class="form-group">
+                        <label for="usernameInput">Username</label>
+                        <input type="text" id="usernameInput" placeholder="Enter your username" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="passwordInput">Password</label>
+                        <input type="password" id="passwordInput" placeholder="Enter your password" required />
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-bottom: 12px;">Login</button>
+                    <button type="button" class="btn-secondary" onclick="showSignupFromLogin()" style="width: 100%;">Create New Account</button>
+                </form>
+                <div class="info-box" style="margin-top: 24px;">
+                    <h4>🔐 Test Accounts</h4>
+                    <p><strong>Owner:</strong> username: owner, password: test<br>
+                    <strong>Admin:</strong> username: admin, password: test<br>
+                    <strong>Viewer:</strong> username: viewer, password: test</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="mainApp" style="display: none;">
         <header>
             <h1>ACAT Correction Service</h1>
             <p>AI-powered validation and correction for DTCC ACAT transfers</p>
             <div id="authSection">
-                <div id="loginForm" style="display: block;">
-                    <input type="text" id="usernameInput" placeholder="Enter username" />
-                    <button onclick="login()">Login</button>
-                    <button onclick="showSignup()" style="background: white; color: #1e3a8a;">Sign Up</button>
-                </div>
-                <div id="userInfo" style="display: none;">
+                <div id="userInfo">
                     <span id="currentUser"></span>
+                    <button onclick="showAbout()">About</button>
+                    <button onclick="showAuditLog()" id="auditLogBtn" style="display: none;">Audit Log</button>
+                    <button onclick="showPendingApprovals()" id="approvalsBtn" style="display: none;">Pending Approvals</button>
                     <button onclick="logout()">Logout</button>
                 </div>
             </div>
@@ -62,6 +90,14 @@
                                 <label for="signupUsername">Username *</label>
                                 <input type="text" id="signupUsername" required minlength="3">
                             </div>
+                            <div class="form-group">
+                                <label for="signupPassword">Password *</label>
+                                <input type="password" id="signupPassword" required minlength="6">
+                            </div>
+                            <div class="form-group">
+                                <label for="signupPasswordConfirm">Confirm Password *</label>
+                                <input type="password" id="signupPasswordConfirm" required minlength="6">
+                            </div>
                             
                             <div class="info-box">
                                 <h4>📝 About Your Username</h4>
@@ -69,7 +105,7 @@
                             </div>
                             
                             <div class="signup-actions">
-                                <button type="button" class="btn-secondary" onclick="showLogin()">Cancel</button>
+                                <button type="button" class="btn-secondary" onclick="showLoginFromSignup()">Cancel</button>
                                 <button type="button" class="btn-primary" onclick="nextSignupStep()">Continue</button>
                             </div>
                         </form>
@@ -90,7 +126,7 @@
                                     <input type="radio" name="userRole" value="read_only">
                                     <div>
                                         <div class="role-title">Viewer (Read-Only)</div>
-                                        <div class="role-description">View ACAT data and reports but cannot make changes</div>
+                                        <div class="role-description">View ACAT data and reports but cannot make changes. Requires owner approval.</div>
                                     </div>
                                 </div>
                             </label>
@@ -99,7 +135,16 @@
                                     <input type="radio" name="userRole" value="full">
                                     <div>
                                         <div class="role-title">Administrator (Full Access)</div>
-                                        <div class="role-description">Full access to create, edit, and manage ACATs. All actions are audit-logged with your username.</div>
+                                        <div class="role-description">Full access to create, edit, and manage ACATs. Access to audit logs. All actions are logged. Requires owner approval.</div>
+                                    </div>
+                                </div>
+                            </label>
+                            <label class="role-option">
+                                <div style="display: flex; align-items: center;">
+                                    <input type="radio" name="userRole" value="owner">
+                                    <div>
+                                        <div class="role-title" style="color: #dc2626;">Owner</div>
+                                        <div class="role-description">Full system control including user approval rights. Immediate access (no approval needed).</div>
                                     </div>
                                 </div>
                             </label>
@@ -217,6 +262,94 @@
                         <button type="button" id="createSubmitBtn" class="btn-success" onclick="submitNewACAT()" style="display: none;">Create ACAT</button>
                         <button type="button" class="btn-secondary" onclick="cancelACATCreation()">Cancel</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- About Screen -->
+        <div id="aboutScreen" style="display: none;">
+            <div class="signup-container" style="max-width: 800px;">
+                <div class="signup-header">
+                    <h1>About ACAT Correction Service</h1>
+                    <p>Understanding User Roles & Permissions</p>
+                </div>
+                <div class="signup-body">
+                    <h3 style="color: #1e3a8a; margin-bottom: 20px;">User Permission Tiers</h3>
+                    
+                    <div class="role-selector">
+                        <div class="role-option" style="cursor: default;">
+                            <div class="role-title" style="color: #dc2626;">🔴 Owner</div>
+                            <div class="role-description" style="margin-left: 0; margin-top: 8px;">
+                                <strong>Full System Control</strong><br>
+                                • Approve or reject new user accounts<br>
+                                • Full access to create, edit, and manage ACATs<br>
+                                • Access to audit logs and compliance reports<br>
+                                • Manage system settings and user permissions<br>
+                                • All actions are permanently logged with username
+                            </div>
+                        </div>
+                        
+                        <div class="role-option" style="cursor: default;">
+                            <div class="role-title" style="color: #1e3a8a;">🔵 Administrator (Full Access)</div>
+                            <div class="role-description" style="margin-left: 0; margin-top: 8px;">
+                                <strong>ACAT Management</strong><br>
+                                • Create and submit new ACAT requests<br>
+                                • Update ACAT statuses with required reasons<br>
+                                • Access audit logs and change history<br>
+                                • View learning analytics and insights<br>
+                                • All actions are logged with username for compliance<br>
+                                • Cannot approve new users (owner-only)
+                            </div>
+                        </div>
+                        
+                        <div class="role-option" style="cursor: default;">
+                            <div class="role-title" style="color: #10b981;">🟢 Viewer (Read-Only)</div>
+                            <div class="role-description" style="margin-left: 0; margin-top: 8px;">
+                                <strong>View-Only Access</strong><br>
+                                • View all ACAT requests and their statuses<br>
+                                • See status history and change logs<br>
+                                • Access dashboard and analytics<br>
+                                • Cannot create, edit, or delete any data<br>
+                                • Cannot change ACAT statuses<br>
+                                • Perfect for compliance and oversight roles
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-box">
+                        <h4>🔐 Security & Compliance</h4>
+                        <p>All user actions are tracked in an immutable audit log with username, timestamp, and reason for changes. This ensures full accountability and compliance with regulatory requirements.</p>
+                    </div>
+                    
+                    <div class="signup-actions">
+                        <button type="button" class="btn-primary" onclick="closeAbout()">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audit Log Screen -->
+        <div id="auditLogScreen" style="display: none;">
+            <div class="results-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Audit Log</h2>
+                    <button class="btn-secondary" onclick="closeAuditLog()">Back to Dashboard</button>
+                </div>
+                <div id="auditLogContent">
+                    <p>Loading audit log...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Approvals Screen (Owner Only) -->
+        <div id="approvalsScreen" style="display: none;">
+            <div class="results-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Pending User Approvals</h2>
+                    <button class="btn-secondary" onclick="closePendingApprovals()">Back to Dashboard</button>
+                </div>
+                <div id="pendingApprovalsContent">
+                    <p>Loading pending approvals...</p>
                 </div>
             </div>
         </div>

@@ -112,23 +112,28 @@ class ACATRecord(BaseModel):
 class UserRole(str, Enum):
     READ_ONLY = "read_only"
     FULL = "full"
+    OWNER = "owner"
 
 
 class User(BaseModel):
     id: str = Field(..., description="Unique user identifier")
     username: str = Field(..., min_length=3, max_length=50, description="Username")
+    password_hash: str = Field(..., description="Hashed password")
     first_name: str = Field(..., min_length=1, max_length=50, description="User's first name")
     last_name: str = Field(..., min_length=1, max_length=50, description="User's last name")
     email: str = Field(..., description="User email address")
     phone_number: Optional[str] = Field(None, description="User phone number")
     role: UserRole = Field(..., description="User role/permissions")
+    is_approved: bool = Field(default=False, description="Whether account is approved by owner")
     is_onboarded: bool = Field(default=False, description="Whether user has completed onboarding")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: Optional[datetime] = Field(None, description="Last login timestamp")
+    approved_by: Optional[str] = Field(None, description="Username of owner who approved account")
 
 
 class UserCreateRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, description="Username")
+    password: str = Field(..., min_length=6, description="Password (min 6 characters)")
     first_name: str = Field(..., min_length=1, max_length=50, description="User's first name")
     last_name: str = Field(..., min_length=1, max_length=50, description="User's last name")
     email: str = Field(..., description="User email address")

@@ -73,7 +73,7 @@ def seed_dummy_data():
             receiving_account=f"REC{random.randint(100000, 999999)}",
             contra_firm=contra_firm,
             transfer_type=random.choice([TransferType.FULL, TransferType.PARTIAL]),
-            transfer_date=datetime.now() - timedelta(days=random.randint(0, 30)),
+            transfer_date=datetime.now() - timedelta(days=random.randint(0, 90)),
             securities=[
                 Security(
                     cusip=cusip,
@@ -101,6 +101,10 @@ def seed_dummy_data():
         
         # Create tracking record
         record = tracking_store.create(acat_request)
+        
+        # Randomize created_at date (within last 90 days)
+        days_ago = random.randint(0, 90)
+        record.created_at = datetime.now() - timedelta(days=days_ago)
         
         # Assign realistic statuses with varying outcomes
         status_weights = {
@@ -199,8 +203,60 @@ def generate_fake_suggestions(contra_firm, was_successful):
     
     return suggestions
 
+def generate_daily_acats():
+    """Generate 5-15 new ACATs with today's date to simulate ongoing activity."""
+    from models.acat import ACATRequest, TransferType, Security, AssetType, CustomerInfo
+    from datetime import datetime, timedelta
+    
+    # Sample data
+    first_names = ["John", "Jane", "Michael", "Sarah", "David", "Lisa", "Robert", "Emily", "James", "Jessica"]
+    last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis"]
+    companies = ["Apple Inc.", "Microsoft Corporation", "Amazon.com Inc.", "Alphabet Inc.", "Tesla Inc."]
+    symbols = ["AAPL", "MSFT", "AMZN", "GOOGL", "TSLA"]
+    cusips = ["037833100", "594918104", "023135106", "02079K305", "88160R101"]
+    contra_firms = ["1234", "5678", "9012", "3456", "7890"]
+    
+    # Generate random number of ACATs (5-15)
+    num_acats = random.randint(5, 15)
+    
+    for i in range(num_acats):
+        acat_request = ACATRequest(
+            delivering_account=f"DEL{random.randint(100000, 999999)}",
+            receiving_account=f"REC{random.randint(100000, 999999)}",
+            contra_firm=random.choice(contra_firms),
+            transfer_type=random.choice([TransferType.FULL, TransferType.PARTIAL]),
+            transfer_date=datetime.now(),
+            securities=[
+                Security(
+                    cusip=random.choice(cusips),
+                    symbol=random.choice(symbols),
+                    description=f"{random.choice(companies)} Common Stock",
+                    quantity=random.randint(10, 1000),
+                    asset_type=random.choice([AssetType.EQUITY, AssetType.MUTUAL_FUND, AssetType.BOND])
+                )
+            ],
+            customer=CustomerInfo(
+                first_name=random.choice(first_names),
+                last_name=random.choice(last_names),
+                ssn=f"{random.randint(100, 999)}-{random.randint(10, 99)}-{random.randint(1000, 9999)}",
+                tax_id=None
+            ),
+            special_instructions="Auto-generated daily ACAT"
+        )
+        
+        # Create with today's date
+        record = tracking_store.create(acat_request)
+        record.created_at = datetime.now()
+        record.status = ACATStatus.NEW
+        tracking_store._records[record.id] = record
+    
+    print(f"Generated {num_acats} new ACATs for today")
+
 # Seed data on startup
 seed_dummy_data()
+
+# Generate today's ACATs
+generate_daily_acats()
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -339,10 +395,10 @@ async def delete_tracking_record(record_id: str):
 # --- Authentication endpoints ---
 
 @app.post("/api/auth/login")
-async def login(username: str):
-    user = auth_service.authenticate(username)
+async def login(username: str, password: str):
+    user = auth_service.authenticate(username, password)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid username")
+        raise HTTPException(status_code=401, detail="Invalid username or password, or account pending approval")
     
     session_id = auth_service.create_session(user)
     return {
@@ -383,6 +439,7 @@ async def register_user(user_data: UserCreateRequest):
     """Register a new user."""
     user = auth_service.create_user(
         username=user_data.username,
+        password=user_data.password,
         first_name=user_data.first_name,
         last_name=user_data.last_name,
         email=user_data.email,
@@ -459,6 +516,85 @@ async def get_learning_insights():
 async def export_learning_data():
     """Export all learning data for analysis."""
     return learning_service.export_learning_data()
+
+
+# --- User Management endpoints (Owner only) ---
+
+@app.get("/api/admin/pending-users")
+async def get_pending_users(session_id: str):
+    """Get all users pending approval (owner only)."""
+    user = auth_service.get_user_from_session(session_id)
+    if not user or user.role != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Owner access required")
+    
+    pending = auth_service.get_pending_users()
+    return [{
+        "id": u.id,
+        "username": u.username,
+        "first_name": u.first_name,
+        "last_name": u.last_name,
+        "email": u.email,
+        "phone_number": u.phone_number,
+        "role": u.role,
+        "created_at": u.created_at
+    } for u in pending]
+
+
+@app.post("/api/admin/approve-user/{user_id}")
+async def approve_user(user_id: str, session_id: str):
+    """Approve a user account (owner only)."""
+    user = auth_service.get_user_from_session(session_id)
+    if not user or user.role != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Owner access required")
+    
+    success = auth_service.approve_user(user_id, user.username)
+    if not success:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"message": "User approved successfully"}
+
+
+@app.post("/api/admin/reject-user/{user_id}")
+async def reject_user(user_id: str, session_id: str):
+    """Reject a user account (owner only)."""
+    user = auth_service.get_user_from_session(session_id)
+    if not user or user.role != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Owner access required")
+    
+    success = auth_service.reject_user(user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"message": "User rejected successfully"}
+
+
+# --- Audit Log endpoints ---
+
+@app.get("/api/audit/changes")
+async def get_audit_log(session_id: str):
+    """Get audit log of all ACAT changes (admin/owner only)."""
+    user = auth_service.get_user_from_session(session_id)
+    if not user or user.role == UserRole.READ_ONLY:
+        raise HTTPException(status_code=403, detail="Admin or Owner access required")
+    
+    # Collect all status changes from all ACATs
+    audit_entries = []
+    for record in tracking_store.list_all():
+        for history_entry in record.status_history:
+            audit_entries.append({
+                "acat_id": record.id,
+                "delivering_account": record.acat_data.delivering_account,
+                "receiving_account": record.acat_data.receiving_account,
+                "from_status": history_entry["from_status"],
+                "to_status": history_entry["to_status"],
+                "reason": history_entry["reason"],
+                "updated_by": history_entry["updated_by"],
+                "updated_at": history_entry["updated_at"]
+            })
+    
+    # Sort by date descending
+    audit_entries.sort(key=lambda x: x["updated_at"], reverse=True)
+    return audit_entries
 
 if __name__ == "__main__":
     uvicorn.run(
