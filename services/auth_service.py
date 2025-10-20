@@ -1,22 +1,34 @@
 import uuid
+import hashlib
 from datetime import datetime
 from typing import Dict, Optional
 from models.acat import User, UserRole
 
 class SimpleAuthService:
-    """Simple in-memory authentication service with two user types."""
+    """Simple in-memory authentication service with password support."""
     
     def __init__(self):
         self._users: Dict[str, User] = {}
         self._sessions: Dict[str, str] = {}  # session_id -> user_id
         self._create_default_users()
     
+    def _hash_password(self, password: str) -> str:
+        """Hash a password using SHA-256."""
+        return hashlib.sha256(password.encode()).hexdigest()
+    
+    def _verify_password(self, password: str, password_hash: str) -> bool:
+        """Verify a password against a hash."""
+        return self._hash_password(password) == password_hash
+    
     def _create_default_users(self):
         """Create default users for testing."""
+        default_password = self._hash_password("test")
+        
         # Owner user
         owner_user = User(
             id=str(uuid.uuid4()),
             username="owner",
+            password_hash=default_password,
             first_name="System",
             last_name="Owner",
             email="owner@vanta.com",
@@ -30,6 +42,7 @@ class SimpleAuthService:
         full_user = User(
             id=str(uuid.uuid4()),
             username="admin",
+            password_hash=default_password,
             first_name="System",
             last_name="Administrator",
             email="admin@vanta.com",
@@ -43,6 +56,7 @@ class SimpleAuthService:
         read_user = User(
             id=str(uuid.uuid4()),
             username="viewer",
+            password_hash=default_password,
             first_name="Read",
             last_name="Only",
             email="viewer@vanta.com",
@@ -52,19 +66,22 @@ class SimpleAuthService:
         )
         self._users[read_user.id] = read_user
     
-    def authenticate(self, username: str) -> Optional[User]:
-        """Simple authentication by username (no password for demo)."""
+    def authenticate(self, username: str, password: str) -> Optional[User]:
+        """Authenticate user with username and password."""
         for user in self._users.values():
             if user.username == username:
-                # Check if user is approved (owner is always approved)
-                if not user.is_approved and user.role != UserRole.OWNER:
+                # Verify password
+                if not self._verify_password(password, user.password_hash):
+                    return None
+                # Check if user is approved
+                if not user.is_approved:
                     return None
                 # Update last login
                 user.last_login = datetime.utcnow()
                 return user
         return None
     
-    def create_user(self, username: str, first_name: str, last_name: str, email: str, phone_number: str = None, role: UserRole = UserRole.READ_ONLY) -> Optional[User]:
+    def create_user(self, username: str, password: str, first_name: str, last_name: str, email: str, phone_number: str = None, role: UserRole = UserRole.READ_ONLY) -> Optional[User]:
         """Create a new user."""
         # Check if username already exists
         for user in self._users.values():
@@ -77,6 +94,7 @@ class SimpleAuthService:
         new_user = User(
             id=str(uuid.uuid4()),
             username=username,
+            password_hash=self._hash_password(password),
             first_name=first_name,
             last_name=last_name,
             email=email,

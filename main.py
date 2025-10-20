@@ -395,10 +395,10 @@ async def delete_tracking_record(record_id: str):
 # --- Authentication endpoints ---
 
 @app.post("/api/auth/login")
-async def login(username: str):
-    user = auth_service.authenticate(username)
+async def login(username: str, password: str):
+    user = auth_service.authenticate(username, password)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid username")
+        raise HTTPException(status_code=401, detail="Invalid username or password, or account pending approval")
     
     session_id = auth_service.create_session(user)
     return {
@@ -439,6 +439,7 @@ async def register_user(user_data: UserCreateRequest):
     """Register a new user."""
     user = auth_service.create_user(
         username=user_data.username,
+        password=user_data.password,
         first_name=user_data.first_name,
         last_name=user_data.last_name,
         email=user_data.email,

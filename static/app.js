@@ -22,30 +22,38 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Authentication functions
-async function login() {
+async function login(event) {
+    if (event) event.preventDefault();
+    
     const username = document.getElementById('usernameInput').value.trim();
-    if (!username) {
-        alert('Please enter a username');
+    const password = document.getElementById('passwordInput').value;
+    
+    if (!username || !password) {
+        alert('Please enter username and password');
         return;
     }
     
     try {
-        const response = await fetch(`/api/auth/login?username=${encodeURIComponent(username)}`, {
+        const response = await fetch(`/api/auth/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, {
             method: 'POST'
         });
         
         if (!response.ok) {
-            throw new Error('Login failed');
+            const error = await response.json();
+            throw new Error(error.detail || 'Login failed');
         }
         
         const data = await response.json();
         sessionId = data.session_id;
         currentUser = data.user;
         
-        // Don't open new window, just update the UI
+        // Hide login screen, show main app
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        
         updateAuthUI();
         refreshACATList();
-        if (currentUser.role === 'full') {
+        if (currentUser.role === 'full' || currentUser.role === 'owner') {
             loadLearningInsights();
         }
     } catch (error) {
@@ -56,8 +64,14 @@ async function login() {
 function logout() {
     currentUser = null;
     sessionId = null;
-    updateAuthUI();
-    refreshACATList();
+    
+    // Clear password field
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('usernameInput').value = '';
+    
+    // Show login screen, hide main app
+    document.getElementById('mainApp').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
 }
 
 function updateAuthUI() {
@@ -826,18 +840,25 @@ async function createUserAccount() {
 // --- Signup Flow ---
 let currentSignupStep = 1;
 
+function showSignupFromLogin() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    document.getElementById('signupFlow').style.display = 'block';
+    currentSignupStep = 1;
+    updateSignupProgress();
+}
+
 function showSignup() {
-    document.getElementById('loginForm').style.display = 'none';
     document.querySelector('.main-content').style.display = 'none';
     document.getElementById('signupFlow').style.display = 'block';
     currentSignupStep = 1;
     updateSignupProgress();
 }
 
-function showLogin() {
+function showLoginFromSignup() {
     document.getElementById('signupFlow').style.display = 'none';
-    document.getElementById('loginForm').style.display = 'block';
-    document.querySelector('.main-content').style.display = 'flex';
+    document.getElementById('mainApp').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
 }
 
 function nextSignupStep() {
@@ -845,6 +866,15 @@ function nextSignupStep() {
     const form = document.getElementById('signupForm');
     if (!form.checkValidity()) {
         form.reportValidity();
+        return;
+    }
+    
+    // Validate password match
+    const password = document.getElementById('signupPassword').value;
+    const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
+    
+    if (password !== passwordConfirm) {
+        alert('Passwords do not match');
         return;
     }
     
@@ -886,6 +916,7 @@ async function completeSignup() {
     
     const userData = {
         username: document.getElementById('signupUsername').value,
+        password: document.getElementById('signupPassword').value,
         first_name: document.getElementById('signupFirstName').value,
         last_name: document.getElementById('signupLastName').value,
         email: document.getElementById('signupEmail').value,
@@ -907,11 +938,11 @@ async function completeSignup() {
         
         const isOwner = selectedRole.value === 'owner';
         if (isOwner) {
-            alert('Owner account created successfully! You have immediate access. Please log in with your username.');
+            alert('Owner account created successfully! You have immediate access. Please log in with your username and password.');
         } else {
             alert('Account created successfully! Your account is pending approval by an owner. You will be able to log in once approved.');
         }
-        showLogin();
+        showLoginFromSignup();
         
         // Reset form
         document.getElementById('signupForm').reset();

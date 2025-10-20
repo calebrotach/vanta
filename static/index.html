@@ -4,20 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ACAT Correction Service</title>
-    <link rel="stylesheet" href="/static/styles.css?v=8">
+    <link rel="stylesheet" href="/static/styles.css?v=9">
 </head>
 <body>
-    <div class="container">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>ACAT Correction Service</h1>
+                <p>AI-powered validation and correction for DTCC ACAT transfers</p>
+            </div>
+            <div class="login-body">
+                <form id="loginForm" onsubmit="login(event); return false;">
+                    <div class="form-group">
+                        <label for="usernameInput">Username</label>
+                        <input type="text" id="usernameInput" placeholder="Enter your username" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="passwordInput">Password</label>
+                        <input type="password" id="passwordInput" placeholder="Enter your password" required />
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-bottom: 12px;">Login</button>
+                    <button type="button" class="btn-secondary" onclick="showSignupFromLogin()" style="width: 100%;">Create New Account</button>
+                </form>
+                <div class="info-box" style="margin-top: 24px;">
+                    <h4>🔐 Test Accounts</h4>
+                    <p><strong>Owner:</strong> username: owner, password: test<br>
+                    <strong>Admin:</strong> username: admin, password: test<br>
+                    <strong>Viewer:</strong> username: viewer, password: test</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="mainApp" style="display: none;">
         <header>
             <h1>ACAT Correction Service</h1>
             <p>AI-powered validation and correction for DTCC ACAT transfers</p>
             <div id="authSection">
-                <div id="loginForm" style="display: block;">
-                    <input type="text" id="usernameInput" placeholder="Enter username" />
-                    <button onclick="login()">Login</button>
-                    <button onclick="showSignup()" style="background: white; color: #1e3a8a;">Sign Up</button>
-                </div>
-                <div id="userInfo" style="display: none;">
+                <div id="userInfo">
                     <span id="currentUser"></span>
                     <button onclick="showAbout()">About</button>
                     <button onclick="showAuditLog()" id="auditLogBtn" style="display: none;">Audit Log</button>
@@ -65,6 +90,14 @@
                                 <label for="signupUsername">Username *</label>
                                 <input type="text" id="signupUsername" required minlength="3">
                             </div>
+                            <div class="form-group">
+                                <label for="signupPassword">Password *</label>
+                                <input type="password" id="signupPassword" required minlength="6">
+                            </div>
+                            <div class="form-group">
+                                <label for="signupPasswordConfirm">Confirm Password *</label>
+                                <input type="password" id="signupPasswordConfirm" required minlength="6">
+                            </div>
                             
                             <div class="info-box">
                                 <h4>📝 About Your Username</h4>
@@ -72,7 +105,7 @@
                             </div>
                             
                             <div class="signup-actions">
-                                <button type="button" class="btn-secondary" onclick="showLogin()">Cancel</button>
+                                <button type="button" class="btn-secondary" onclick="showLoginFromSignup()">Cancel</button>
                                 <button type="button" class="btn-primary" onclick="nextSignupStep()">Continue</button>
                             </div>
                         </form>

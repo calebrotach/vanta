@@ -118,6 +118,7 @@ class UserRole(str, Enum):
 class User(BaseModel):
     id: str = Field(..., description="Unique user identifier")
     username: str = Field(..., min_length=3, max_length=50, description="Username")
+    password_hash: str = Field(..., description="Hashed password")
     first_name: str = Field(..., min_length=1, max_length=50, description="User's first name")
     last_name: str = Field(..., min_length=1, max_length=50, description="User's last name")
     email: str = Field(..., description="User email address")
@@ -132,6 +133,7 @@ class User(BaseModel):
 
 class UserCreateRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, description="Username")
+    password: str = Field(..., min_length=6, description="Password (min 6 characters)")
     first_name: str = Field(..., min_length=1, max_length=50, description="User's first name")
     last_name: str = Field(..., min_length=1, max_length=50, description="User's last name")
     email: str = Field(..., description="User email address")
