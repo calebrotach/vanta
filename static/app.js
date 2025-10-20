@@ -22,9 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Authentication functions
-async function login(event) {
-    if (event) event.preventDefault();
-    
+async function login() {
     const username = document.getElementById('usernameInput').value.trim();
     const password = document.getElementById('passwordInput').value;
     
