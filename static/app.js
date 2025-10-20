@@ -718,18 +718,18 @@ function renderStatusActions(record) {
 }
 
 function showStatusUpdateModal(recordId, newStatus) {
-    const reason = prompt(`Enter reason for changing status to "${newStatus}":`);
-    if (reason && reason.trim()) {
-        // Store pending status change data
-        pendingStatusChange = {
-            recordId: recordId,
-            newStatus: newStatus,
-            reason: reason.trim()
-        };
-        
-        // Show password verification modal
-        showPasswordModal();
-    }
+    // Store pending status change data
+    pendingStatusChange = {
+        recordId: recordId,
+        newStatus: newStatus
+    };
+    
+    // Show status change modal
+    document.getElementById('newStatusDisplay').textContent = newStatus;
+    document.getElementById('statusChangeReason').value = '';
+    document.getElementById('passwordVerification').value = '';
+    document.getElementById('statusChangeModal').style.display = 'flex';
+    document.getElementById('statusChangeReason').focus();
 }
 
 async function updateRecordStatus(id, status, reason) {
@@ -763,22 +763,25 @@ async function updateRecordStatus(id, status, reason) {
     }
 }
 
-// Password verification functions
-function showPasswordModal() {
-    document.getElementById('passwordModal').style.display = 'flex';
-    document.getElementById('passwordVerification').value = '';
-    document.getElementById('passwordVerification').focus();
-}
-
-function cancelPasswordVerification() {
-    document.getElementById('passwordModal').style.display = 'none';
+// Status change modal functions
+function cancelStatusChange() {
+    document.getElementById('statusChangeModal').style.display = 'none';
     pendingStatusChange = null;
 }
 
-async function confirmPasswordVerification() {
+async function confirmStatusChange() {
+    const reason = document.getElementById('statusChangeReason').value.trim();
     const password = document.getElementById('passwordVerification').value;
+    
+    if (!reason) {
+        alert('Please enter a reason for the status change');
+        document.getElementById('statusChangeReason').focus();
+        return;
+    }
+    
     if (!password) {
         alert('Please enter your password');
+        document.getElementById('passwordVerification').focus();
         return;
     }
     
@@ -789,7 +792,10 @@ async function confirmPasswordVerification() {
         });
         
         if (!verifyResponse.ok) {
-            throw new Error('Invalid password');
+            alert('Invalid password. Please try again.');
+            document.getElementById('passwordVerification').value = '';
+            document.getElementById('passwordVerification').focus();
+            return;
         }
         
         // Update status with password verification
@@ -798,7 +804,7 @@ async function confirmPasswordVerification() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 status: pendingStatusChange.newStatus,
-                reason: pendingStatusChange.reason,
+                reason: reason,
                 updated_by: currentUser.username,
                 password: password,
                 session_id: sessionId
@@ -814,7 +820,7 @@ async function confirmPasswordVerification() {
         
         // Close modal and refresh
         const newStatus = pendingStatusChange.newStatus;
-        document.getElementById('passwordModal').style.display = 'none';
+        document.getElementById('statusChangeModal').style.display = 'none';
         pendingStatusChange = null;
         refreshACATList();
         
@@ -823,7 +829,12 @@ async function confirmPasswordVerification() {
             loadLearningInsights();
         }
         
-        alert(`Status updated to ${newStatus}`);
+        // Show success message
+        const successMsg = document.createElement('div');
+        successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #10b981; color: white; padding: 16px 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000;';
+        successMsg.textContent = `✓ Status updated to ${newStatus}`;
+        document.body.appendChild(successMsg);
+        setTimeout(() => successMsg.remove(), 3000);
         
     } catch (error) {
         alert('Failed to update status: ' + error.message);
