@@ -10,7 +10,7 @@ import uvicorn
 from models.acat import ACATRequest, ACATValidationResponse, ACATSubmissionRequest
 from services.claude_service import ClaudeACATService
 from services.validation_service import ACATValidationService
-from services.tracking_service import InMemoryACATStore
+from services.tracking_service import InMemoryACATStore, AuditLog
 from services.auth_service import SimpleAuthService
 from services.learning_service import ContraFirmLearningService
 from models.acat import ACATRecord, ACATStatus, StatusUpdateRequest, UserRole, UserCreateRequest, OnboardingStep
@@ -37,7 +37,8 @@ app.add_middleware(
 # Initialize services
 claude_service = ClaudeACATService()
 validation_service = ACATValidationService()
-tracking_store = InMemoryACATStore()
+audit_log = AuditLog()
+tracking_store = InMemoryACATStore(audit_log)
 auth_service = SimpleAuthService()
 learning_service = ContraFirmLearningService()
 
@@ -339,7 +340,7 @@ async def submit_acat(submission_request: ACATSubmissionRequest):
         }
 
         # Create tracking record on submission
-        tracking_record = tracking_store.create(acat_data)
+        tracking_record = tracking_store.create(acat_data, created_by="system")
         tracking_store.update_status(tracking_record.id, ACATStatus.SUBMITTED, "Initial submission", "system")
         submission_response["tracking_id"] = tracking_record.id
         submission_response["tracking_status"] = tracking_record.status
@@ -551,6 +552,15 @@ async def approve_user(user_id: str, session_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Log audit entry
+    audit_log.log_action(
+        action="approve_user",
+        entity_type="user",
+        entity_id=user_id,
+        details={"approved_by": user.username},
+        performed_by=user.username
+    )
+    
     return {"message": "User approved successfully"}
 
 
@@ -565,6 +575,15 @@ async def reject_user(user_id: str, session_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Log audit entry
+    audit_log.log_action(
+        action="reject_user",
+        entity_type="user",
+        entity_id=user_id,
+        details={"rejected_by": user.username},
+        performed_by=user.username
+    )
+    
     return {"message": "User rejected successfully"}
 
 
@@ -572,28 +591,27 @@ async def reject_user(user_id: str, session_id: str):
 
 @app.get("/api/audit/changes")
 async def get_audit_log(session_id: str):
-    """Get audit log of all ACAT changes (admin/owner only)."""
+    """Get audit log of all system changes (admin/owner only)."""
     user = auth_service.get_user_from_session(session_id)
     if not user or user.role == UserRole.READ_ONLY:
         raise HTTPException(status_code=403, detail="Admin or Owner access required")
     
-    # Collect all status changes from all ACATs
-    audit_entries = []
-    for record in tracking_store.list_all():
-        for history_entry in record.status_history:
-            audit_entries.append({
-                "acat_id": record.id,
-                "delivering_account": record.acat_data.delivering_account,
-                "receiving_account": record.acat_data.receiving_account,
-                "from_status": history_entry["from_status"],
-                "to_status": history_entry["to_status"],
-                "reason": history_entry["reason"],
-                "updated_by": history_entry["updated_by"],
-                "updated_at": history_entry["updated_at"]
-            })
+    # Get all audit entries from the audit log
+    entries = audit_log.get_entries()
     
-    # Sort by date descending
-    audit_entries.sort(key=lambda x: x["updated_at"], reverse=True)
+    # Convert to response format
+    audit_entries = []
+    for entry in entries:
+        audit_entries.append({
+            "id": entry.id,
+            "action": entry.action,
+            "entity_type": entry.entity_type,
+            "entity_id": entry.entity_id,
+            "details": entry.details,
+            "performed_by": entry.performed_by,
+            "performed_at": entry.performed_at.isoformat()
+        })
+    
     return audit_entries
 
 if __name__ == "__main__":
