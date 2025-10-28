@@ -1195,3 +1195,88 @@ header p {
     color: #92400e;
     line-height: 1.5;
 }
+
+/* Password Verification Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+    margin: 0 0 8px 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.modal-header p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.modal-actions {
+    padding: 16px 24px 24px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Action badges for audit log */
+.action-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.action-status_change {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.action-create {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.action-approve_user {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.action-reject_user {
+    background: #fee2e2;
+    color: #991b1b;
+}

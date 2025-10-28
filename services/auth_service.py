@@ -20,6 +20,10 @@ class SimpleAuthService:
         """Verify a password against a hash."""
         return self._hash_password(password) == password_hash
     
+    def verify_password(self, password: str, password_hash: str) -> bool:
+        """Public method to verify a password against a hash."""
+        return self._verify_password(password, password_hash)
+    
     def _create_default_users(self):
         """Create default users for testing."""
         default_password = self._hash_password("test")
