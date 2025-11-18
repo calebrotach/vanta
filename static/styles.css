@@ -1250,33 +1250,134 @@ header p {
     border-top: 1px solid #e5e7eb;
 }
 
-/* Action badges for audit log */
-.action-badge {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
+/* User Management Styles */
+.user-management-content {
+    padding: 20px;
+}
+
+.stats-section, .pending-users-section, .all-users-section {
+    margin-bottom: 30px;
+}
+
+.stats-section h3, .pending-users-section h3, .all-users-section h3 {
+    color: #1e3a8a;
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+    border-left: 4px solid #3b82f6;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #1e3a8a;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
-.action-status_change {
-    background: #dbeafe;
-    color: #1e40af;
+.user-list {
+    display: grid;
+    gap: 15px;
 }
 
-.action-create {
-    background: #dcfce7;
-    color: #166534;
+.user-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 4px solid #e5e7eb;
 }
 
-.action-approve_user {
-    background: #fef3c7;
-    color: #92400e;
+.user-card.pending {
+    border-left-color: #f59e0b;
 }
 
-.action-reject_user {
-    background: #fee2e2;
-    color: #991b1b;
+.user-card.approved {
+    border-left-color: #10b981;
+}
+
+.user-info h4 {
+    margin: 0 0 10px 0;
+    color: #1e3a8a;
+    font-size: 16px;
+}
+
+.user-info p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #64748b;
+}
+
+.user-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #374151;
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.screen-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* Modal form styles */
+.modal-body .form-group {
+    margin-bottom: 20px;
+}
+
+.modal-body .form-group:last-child {
+    margin-bottom: 0;
 }

@@ -60,9 +60,23 @@ async function login() {
     }
 }
 
-function logout() {
+async function logout() {
+    // Invalidate session on server if we have one
+    if (sessionId) {
+        try {
+            await fetch(`/api/auth/logout?session_id=${sessionId}`, {
+                method: 'POST'
+            });
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    }
+    
     currentUser = null;
     sessionId = null;
+    
+    // Clear localStorage
+    localStorage.removeItem('acat_session');
     
     // Clear password field
     document.getElementById('passwordInput').value = '';
@@ -1497,6 +1511,210 @@ async function rejectUser(userId) {
     } catch (error) {
         alert('Failed to reject user: ' + error.message);
     }
+}
+
+// User Management Functions
+function showUserManagement() {
+    hideAllScreens();
+    document.getElementById('userManagementScreen').style.display = 'block';
+    loadUserManagement();
+}
+
+function hideAllScreens() {
+    const screens = ['dashboardScreen', 'acatCreationScreen', 'aboutScreen', 'auditLogScreen', 'pendingApprovalsScreen', 'userManagementScreen'];
+    screens.forEach(screenId => {
+        const screen = document.getElementById(screenId);
+        if (screen) screen.style.display = 'none';
+    });
+}
+
+async function loadUserManagement() {
+    try {
+        // Load user statistics
+        const statsResponse = await fetch(`/api/admin/users/stats?session_id=${sessionId}`);
+        if (statsResponse.ok) {
+            const stats = await statsResponse.json();
+            renderUserStats(stats);
+        }
+        
+        // Load pending users
+        const pendingResponse = await fetch(`/api/admin/users/pending?session_id=${sessionId}`);
+        if (pendingResponse.ok) {
+            const data = await pendingResponse.json();
+            renderPendingUsers(data.pending_users);
+        }
+        
+        // Load all users
+        const usersResponse = await fetch(`/api/admin/users?session_id=${sessionId}`);
+        if (usersResponse.ok) {
+            const data = await usersResponse.json();
+            renderAllUsers(data.users);
+        }
+        
+    } catch (error) {
+        console.error('Failed to load user management data:', error);
+        alert('Failed to load user management data');
+    }
+}
+
+function renderUserStats(stats) {
+    const container = document.getElementById('userStats');
+    container.innerHTML = `
+        <div class="stat-card">
+            <div class="stat-value">${stats.total_users}</div>
+            <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.approved_users}</div>
+            <div class="stat-label">Approved</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.pending_users}</div>
+            <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.owner_users}</div>
+            <div class="stat-label">Owners</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.full_users}</div>
+            <div class="stat-label">Full Access</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.read_only_users}</div>
+            <div class="stat-label">Read Only</div>
+        </div>
+    `;
+}
+
+function renderPendingUsers(users) {
+    const container = document.getElementById('pendingUsersList');
+    
+    if (!users || users.length === 0) {
+        container.innerHTML = '<p>No pending users</p>';
+        return;
+    }
+    
+    const userCards = users.map(user => `
+        <div class="user-card pending">
+            <div class="user-info">
+                <h4>${user.first_name} ${user.last_name}</h4>
+                <p><strong>Username:</strong> ${user.username}</p>
+                <p><strong>Email:</strong> ${user.email}</p>
+                <p><strong>Role:</strong> ${user.role}</p>
+                <p><strong>Created:</strong> ${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</p>
+            </div>
+            <div class="user-actions">
+                <button onclick="approveUserByUsername('${user.username}')" class="btn-primary">Approve</button>
+                <button onclick="rejectUser('${user.id}')" class="btn-danger">Reject</button>
+            </div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = userCards;
+}
+
+function renderAllUsers(users) {
+    const container = document.getElementById('allUsersList');
+    
+    if (!users || users.length === 0) {
+        container.innerHTML = '<p>No users found</p>';
+        return;
+    }
+    
+    const userCards = users.map(user => `
+        <div class="user-card ${user.is_approved ? 'approved' : 'pending'}">
+            <div class="user-info">
+                <h4>${user.first_name} ${user.last_name}</h4>
+                <p><strong>Username:</strong> ${user.username}</p>
+                <p><strong>Email:</strong> ${user.email}</p>
+                <p><strong>Role:</strong> ${user.role}</p>
+                <p><strong>Status:</strong> ${user.is_approved ? 'Approved' : 'Pending'}</p>
+                <p><strong>Last Login:</strong> ${user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}</p>
+            </div>
+            <div class="user-actions">
+                ${!user.is_approved ? `<button onclick="approveUserByUsername('${user.username}')" class="btn-primary">Approve</button>` : ''}
+                ${user.role !== 'owner' ? `<button onclick="rejectUser('${user.id}')" class="btn-danger">Delete</button>` : ''}
+            </div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = userCards;
+}
+
+async function approveUserByUsername(username) {
+    try {
+        const response = await fetch(`/api/admin/users/approve-by-username?username=${encodeURIComponent(username)}&session_id=${sessionId}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to approve user');
+        }
+        
+        const result = await response.json();
+        alert(result.message);
+        loadUserManagement(); // Refresh the data
+    } catch (error) {
+        alert('Failed to approve user: ' + error.message);
+    }
+}
+
+function showCreateUserModal() {
+    document.getElementById('createUserModal').style.display = 'flex';
+    document.getElementById('newUsername').focus();
+}
+
+function cancelCreateUser() {
+    document.getElementById('createUserModal').style.display = 'none';
+    // Clear form
+    document.getElementById('newUsername').value = '';
+    document.getElementById('newPassword').value = '';
+    document.getElementById('newFirstName').value = '';
+    document.getElementById('newLastName').value = '';
+    document.getElementById('newEmail').value = '';
+    document.getElementById('newPhone').value = '';
+    document.getElementById('newRole').value = 'read_only';
+    document.getElementById('autoApprove').checked = false;
+}
+
+async function createUser() {
+    const username = document.getElementById('newUsername').value.trim();
+    const password = document.getElementById('newPassword').value;
+    const firstName = document.getElementById('newFirstName').value.trim();
+    const lastName = document.getElementById('newLastName').value.trim();
+    const email = document.getElementById('newEmail').value.trim();
+    const phone = document.getElementById('newPhone').value.trim();
+    const role = document.getElementById('newRole').value;
+    const autoApprove = document.getElementById('autoApprove').checked;
+    
+    if (!username || !password || !firstName || !lastName || !email) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/users/create?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&first_name=${encodeURIComponent(firstName)}&last_name=${encodeURIComponent(lastName)}&email=${encodeURIComponent(email)}&phone_number=${encodeURIComponent(phone)}&role=${role}&auto_approve=${autoApprove}&session_id=${sessionId}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create user');
+        }
+        
+        const result = await response.json();
+        alert(result.message);
+        cancelCreateUser();
+        loadUserManagement(); // Refresh the data
+    } catch (error) {
+        alert('Failed to create user: ' + error.message);
+    }
+}
+
+function refreshUserManagement() {
+    loadUserManagement();
 }
 
 // Setup event listeners
