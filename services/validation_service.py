@@ -36,18 +36,34 @@ class ACATValidationService:
             ))
             warnings.append(f"Contra firm {acat_request.contra_firm} not in common participants list")
         
-        # Validate CUSIPs
-        for i, security in enumerate(acat_request.securities):
-            if not self._is_valid_cusip(security.cusip):
+        # Validate CUSIPs in positions
+        positions = acat_request.positions if acat_request.positions else []
+        if not positions and acat_request.securities:
+            # Fall back to securities for backward compatibility
+            positions = acat_request.securities
+        
+        for i, position in enumerate(positions):
+            if not self._is_valid_cusip(position.cusip):
                 suggestions.append(CorrectionSuggestion(
-                    field=f"securities[{i}].cusip",
-                    current_value=security.cusip,
-                    suggested_value=self._suggest_cusip_correction(security.cusip),
+                    field=f"positions[{i}].cusip",
+                    current_value=position.cusip,
+                    suggested_value=self._suggest_cusip_correction(position.cusip),
                     reason="CUSIP format appears invalid",
                     confidence=0.8,
                     severity="high"
                 ))
-                warnings.append(f"Invalid CUSIP format: {security.cusip}")
+                warnings.append(f"Invalid CUSIP format: {position.cusip}")
+        
+        # Validate user account number
+        if not self._is_valid_account_number(acat_request.user_account_number):
+            suggestions.append(CorrectionSuggestion(
+                field="user_account_number",
+                current_value=acat_request.user_account_number,
+                suggested_value=acat_request.user_account_number.replace(" ", "").replace("-", ""),
+                reason="User account number contains invalid characters",
+                confidence=0.9,
+                severity="high"
+            ))
         
         # Validate account numbers
         if not self._is_valid_account_number(acat_request.delivering_account):
@@ -55,7 +71,7 @@ class ACATValidationService:
                 field="delivering_account",
                 current_value=acat_request.delivering_account,
                 suggested_value=acat_request.delivering_account.replace(" ", "").replace("-", ""),
-                reason="Account number contains invalid characters",
+                reason="Delivering account number contains invalid characters",
                 confidence=0.9,
                 severity="high"
             ))
@@ -65,7 +81,7 @@ class ACATValidationService:
                 field="receiving_account", 
                 current_value=acat_request.receiving_account,
                 suggested_value=acat_request.receiving_account.replace(" ", "").replace("-", ""),
-                reason="Account number contains invalid characters",
+                reason="Receiving account number contains invalid characters",
                 confidence=0.9,
                 severity="high"
             ))

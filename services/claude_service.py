@@ -49,20 +49,27 @@ class ClaudeACATService:
     
     def _format_acat_for_analysis(self, acat_request: ACATRequest) -> Dict[str, Any]:
         """Format ACAT request data for Claude analysis."""
+        # Use positions if available, fall back to securities for backward compatibility
+        positions = acat_request.positions if acat_request.positions else []
+        if not positions and acat_request.securities:
+            # Convert securities to positions format
+            positions = acat_request.securities
+        
         return {
             "delivering_account": acat_request.delivering_account,
             "receiving_account": acat_request.receiving_account,
+            "user_account_number": acat_request.user_account_number,
             "contra_firm": acat_request.contra_firm,
             "transfer_type": acat_request.transfer_type,
             "transfer_date": acat_request.transfer_date.isoformat(),
-            "securities": [
+            "positions": [
                 {
-                    "cusip": sec.cusip,
-                    "symbol": sec.symbol,
-                    "description": sec.description,
-                    "quantity": sec.quantity,
-                    "asset_type": sec.asset_type
-                } for sec in acat_request.securities
+                    "cusip": pos.cusip,
+                    "symbol": pos.symbol,
+                    "description": pos.description,
+                    "quantity": pos.quantity,
+                    "asset_type": pos.asset_type
+                } for pos in positions
             ],
             "customer": {
                 "first_name": acat_request.customer.first_name,
@@ -71,8 +78,8 @@ class ClaudeACATService:
                 "tax_id": acat_request.customer.tax_id,
                 "date_of_birth": acat_request.customer.date_of_birth.isoformat() if acat_request.customer.date_of_birth else None
             },
-            "special_instructions": acat_request.special_instructions,
-            "account_type": acat_request.account_type
+            "account_type": acat_request.account_type.value if hasattr(acat_request.account_type, 'value') else str(acat_request.account_type),
+            "special_instructions": acat_request.special_instructions
         }
     
     def _create_analysis_prompt(self, acat_data: Dict[str, Any]) -> str:
@@ -94,12 +101,12 @@ Please analyze this data and provide:
 Common DTCC ACATS rejection reasons include:
 - Invalid CUSIP codes
 - Incorrect contra firm numbers
-- Mismatched account numbers
+- Mismatched account numbers (delivering, receiving, or user account number)
 - Invalid transfer types
-- Missing required fields
+- Missing required fields (positions, user account number, account type)
 - Format errors in customer information
-- Invalid security quantities
-- Account type mismatches
+- Invalid position quantities
+- Account type mismatches (must use DTCC account type definitions)
 
 For each suggestion, provide:
 - field: the field name that needs correction

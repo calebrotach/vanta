@@ -72,18 +72,21 @@ class SimpleAuthService:
     
     def authenticate(self, username: str, password: str) -> Optional[User]:
         """Authenticate user with username and password."""
-        for user in self._users.values():
-            if user.username == username:
-                # Verify password
-                if not self._verify_password(password, user.password_hash):
-                    return None
-                # Check if user is approved
-                if not user.is_approved:
-                    return None
-                # Update last login
-                user.last_login = datetime.utcnow()
-                return user
-        return None
+        user = self.get_user_by_username(username)
+        if not user:
+            return None
+        
+        # Verify password
+        if not self._verify_password(password, user.password_hash):
+            return None
+        
+        # Check if user is approved
+        if not user.is_approved:
+            return None
+        
+        # Update last login
+        user.last_login = datetime.utcnow()
+        return user
     
     def create_user(self, username: str, password: str, first_name: str, last_name: str, email: str, phone_number: str = None, role: UserRole = UserRole.READ_ONLY) -> Optional[User]:
         """Create a new user."""
@@ -130,6 +133,20 @@ class SimpleAuthService:
             return self._users.get(user_id)
         return None
     
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a session (logout)."""
+        if session_id in self._sessions:
+            del self._sessions[session_id]
+            return True
+        return False
+    
+    def get_user_by_username(self, username: str) -> Optional[User]:
+        """Get user by username."""
+        for user in self._users.values():
+            if user.username == username:
+                return user
+        return None
+    
     def has_permission(self, user: User, action: str) -> bool:
         """Check if user has permission for an action."""
         if user.role == UserRole.FULL:
@@ -160,3 +177,13 @@ class SimpleAuthService:
             del self._users[user_id]
             return True
         return False
+    
+    def approve_all_pending_users(self, approver_username: str) -> int:
+        """Approve all pending users (owner only). Returns count of approved users."""
+        count = 0
+        for user in self._users.values():
+            if not user.is_approved and user.role != UserRole.OWNER:
+                user.is_approved = True
+                user.approved_by = approver_username
+                count += 1
+        return count
